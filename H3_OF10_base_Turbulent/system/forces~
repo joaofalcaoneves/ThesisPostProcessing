@@ -1,0 +1,28 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2.1.0                                 |
+|   \\  /    A nd           | Web:      www.OpenFOAM.org                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+
+forces
+{
+    type        forces;
+    functionObjectLibs ( "libforces.so" );
+    outputControl timeStep;
+    outputInterval 1;
+
+    patches     ( 
+                 geometria.stl_patch0 // THE NAME OF THE PLATE
+                );
+    pName       p_rgh;
+    UName       U;
+    rhoName     rhoInf;      // Indicates incompressible
+    log         true;
+    rhoInf      1000;           // 
+    CofR        (0 0 0);  // Axle midpoint on ground
+}
+
+
+// ************************************************************************* //

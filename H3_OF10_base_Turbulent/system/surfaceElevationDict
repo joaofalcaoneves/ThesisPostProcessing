@@ -1,0 +1,185 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM Extend Project: Open source CFD        |
+|  \\    /   O peration     | Version:  1.6-ext                               |
+|   \\  /    A nd           | Web:      www.extend-project.de                 |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    system;
+    object      surfaceElevationDict;
+}
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// Set output format : choice of
+//      xmgr
+//      jplot
+//      gnuplot
+//      raw
+setFormat raw;
+
+// interpolationScheme. choice of
+//      cell          : use cell-centre value only; constant over cells (default)
+//      cellPoint     : use cell-centre and vertex values
+//      cellPointFace : use cell-centre, vertex and face values.
+// 1] vertex values determined from neighbouring cell-centre values
+// 2] face values determined using the current face interpolation scheme
+//    for the field (linear, gamma, etc.)
+interpolationScheme cellPointFace;
+
+// Fields to sample.
+fields
+(
+    alpha.phase1
+);
+
+
+// Set sampling definition: choice of
+//      uniform             evenly distributed points on line
+//      face                one point per face intersection
+//      midPoint            one point per cell, inbetween two face intersections
+//      midPointAndFace     combination of face and midPoint
+//
+//      curve               specified points, not nessecary on line, uses
+//                          tracking
+//      cloud               specified points, uses findCell
+//
+// axis: how to write point coordinate. Choice of
+// - x/y/z: x/y/z coordinate only
+// - xyz: three columns
+//  (probably does not make sense for anything but raw)
+// - distance: distance from start of sampling line (if uses line) or
+//             distance from first specified sampling point
+//
+// type specific:
+//      uniform, face, midPoint, midPointAndFace : start and end coordinate
+//      uniform: extra number of sampling points
+//      curve, cloud: list of coordinates
+sets
+(
+    WP1
+    {
+        type        face;
+        axis        y;
+
+        start       (0.1 -80.0 0.25);
+        end         (0.1  10.0 0.25);
+        nPoints     100;
+    }
+
+    WP2
+    {
+        type        face;
+        axis        y;
+
+        start       (1.0 -80.0 0.25);
+        end         (1.0  10.0 0.25);
+        nPoints     100;
+    }
+
+    WP3
+    {
+        type        face;
+        axis        y;
+
+        start       (300.0 -80.0 0.25);
+        end         (300.0  10.0 0.25);
+        nPoints     100;
+    }
+
+    WP4
+    {
+        type        face;
+        axis        y;
+
+        start       (450.0 -80.0 0.25);
+        end         (450.0  10.0 0.25);
+        nPoints     100;
+    }
+
+    WP5
+    {
+        type        face;
+        axis        y;
+
+        start       (750.0 -80.0 0.25);
+        end         (750.0  10.0 0.25);
+        nPoints     100;
+    }
+
+    WP6
+    {
+        type        face;
+        axis        y;
+
+        start       (900.0 -80.0 0.25);
+        end         (900.0  10.0 0.25);
+        nPoints     100;
+    }
+
+    WP7
+    {
+        type        face;
+        axis        y;
+
+        start       (1199.0 -80.0 0.25);
+        end         (1199.0  10.0 0.25);
+        nPoints     100;
+    }
+
+    WP8
+    {
+        type        face;
+        axis        y;
+
+        start       (1199.9 -80.0 0.25);
+        end         (1199.9  10.0 0.25);
+        nPoints     100;
+    }
+
+    WP1WLleft
+    {
+        type        face;
+        axis        y;
+
+        start       (540.4 -80.0 0.25);
+        end         (540.4  10.0 0.25);
+        nPoints     100;
+    }
+
+    WP1WLright
+    {
+        type        face;
+        axis        y;
+
+        start       (659.6 -80.0 0.25);
+        end         (659.6  10.0 0.25);
+        nPoints     100;
+    }
+
+    WP2WLleft
+    {
+        type        face;
+        axis        y;
+
+        start       (480.8 -80.0 0.25);
+        end         (480.8  10.0 0.25);
+        nPoints     100;
+    }
+
+    WP2WLright
+    {
+        type        face;
+        axis        y;
+
+        start       (719.2 -80.0 0.25);
+        end         (719.2  10.0 0.25);
+        nPoints     100;
+    }
+);
+// *********************************************************************** //

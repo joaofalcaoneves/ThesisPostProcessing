@@ -1,0 +1,39 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Version:  10
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      dynamicMeshDict;
+}
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+mover
+{
+    type        tableMotion;
+    libs            ("libfvMeshMovers.so" "libfvMotionSolvers.so");
+    patches     (geometria.stl);
+    tableFile   "motionTable.dat";
+    tableType   timeSeparate;
+    executeControl  timeStep;
+    interpolationScheme linear;
+}
+
+meshDiffusivityCoeffs
+{
+    diffusivity     inverseDistance (geometria.stl);
+}
+
+// ************************************************************************* //
+
+
+

@@ -1,0 +1,93 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Version:  10
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      dynamicMeshDict;
+}
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+/*mover
+{
+    type            tableMotion;
+    libs            ("libfvMeshMovers.so" "libfvMotionSolvers.so");
+
+    functionObjectLibs ("libsampling.so");
+    patches         (geometria.stl);
+    tableFile       "motionTable.dat";
+    tableType       timeSeparate;
+    executeControl  timeStep;
+}*/
+
+mover
+{
+    type            motionSolver;
+
+    libs            ("libfvMeshMovers.so" "librigidBodyMeshMotion.so");
+
+    motionSolver       rigidBodyMotion;
+
+    rigidBodyMotionCoeffs
+    {
+        report          on;
+
+        solver
+        {
+            type Newmark;
+        }
+
+        accelerationRelaxation 0.7;
+
+        bodies
+        {
+            geometria.stl
+            {
+                type            rigidBody;
+                patches         (geometria.stl);
+                innerDistance   1;
+                outerDistance   150;
+
+                mass               1; //Need to guarantee that it is not needed else use this in post
+                //momentOfInertia   (1 1 1); //Need to guarantee that it is not needed else use this in post
+                centreOfMass      (0 0 0); //initial pos of cylinder center of gravity
+                inertia         (0 0 0 0 0 0);
+
+                joint
+                {
+                    type Py ;
+                }
+
+                solver
+                {
+                    type Newmark;
+                }
+
+                translationRotation table;
+                interpolationScheme linear;
+                file            "motionTable.dat";
+            }
+        }
+    }
+}
+
+
+
+meshDiffusivityCoeffs
+{
+    diffusivity     inverseDistance 1 (geometria.stl);
+}
+
+// ************************************************************************* //
+
+
+
