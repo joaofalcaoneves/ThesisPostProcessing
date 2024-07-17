@@ -28,6 +28,6 @@ class UzunogluMethod:
         self.motionamplitude = motionamplitude
         self.w = w
         # Calculates damping and assigns as instance attribute:
-        self.damping = - self.hydrodynamicforce * np.sin(self.phaselag) / (self.motionamplitude * self.w)
+        self.damping = self.hydrodynamicforce * np.sin(self.phaselag) / (self.motionamplitude * self.w)
         # Calculates damping and assigns as instance attribute:
         self.addedmass = self.hydrodynamicforce * np.cos(self.phaselag) / (self.motionamplitude * self.w ** 2)
