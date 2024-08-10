@@ -273,12 +273,14 @@ if __name__ == "__main__":
 
 
     ##################################################################################################################
-    # Calculate the hydrodynamic coefficients using FFT
+    # Calculate the hydrodynamic coefficients using  OC7 FFT
     ##################################################################################################################
 
     #F_in, F_out, num_periods, time_analysis, force_analysis = pop.calculate_force_components(time_truncated, forceY_truncated, w)
+    oc7 = hc.OC7(time_truncated_n_periods, forceY_truncated_n_periods, motionAmp, w, 2*R, rho)
+    Fa = oc7.Fa
+    print(Fa)
     
-
 
     ##################################################################################################################
     # Calculate the hydrodynamic coefficients using radiated wave - VUGTS (wave damping)
