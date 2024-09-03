@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import numpy as np
-import scipy.fft
+from scipy.fft import fft, fftfreq
 
 class JorgeMethod:
 
@@ -33,6 +33,7 @@ class UzunogluMethod:
         self.addedmass = self.hydrodynamicforce * np.cos(self.phaselag) / (self.motionamplitude * self.w ** 2)
 
 
+'''
 class OC7:
 
     def __init__(self, time: np.ndarray, force: np.ndarray, motionAmp: float, omega: float, diameter: float, rho: float = 998.2) -> None:
@@ -114,11 +115,11 @@ class OC7:
 
         # Extract coefficients for linear and quadratic damping
         linear_damping_coefficient = cd_linear[0] / (0.5*8/3/np.pi*rho*self.velAmp**2*diameter)       # Linear damping coefficient
+'''
 
+class LinearCoefficients:
 
-class :
-
-    def __init__(self, time: np.ndarray, force: np.ndarray, motionAmp: float, omega: float, diameter: float, rho: float = 998.2) -> None:
+    def __init__(self, time: np.ndarray, force: np.ndarray, motionAmp: float, omega: float, half_breadth: float, rho: float = 998.2) -> None:
         # By default only use the second half of the data
         self.time = time
         self.time_step = time[1]-time[0]
@@ -127,5 +128,30 @@ class :
         self.motionAmp = motionAmp
         self.velAmp = omega * self.motionAmp
         self.acelAmp = omega**2 * self.motionAmp
-        self.diameter = diameter
+        self.half_breadth = half_breadth
         self.rho = rho
+
+        N = len(force)
+        fft_result = fft(force)
+        frequencies = fftfreq(N, d=self.time_step)
+
+        self.fundamental_index = np.argmax(frequencies>0)
+        self.fundamental_frequency = frequencies[self.fundamental_index]
+        
+        self.real_part = np.real(fft_result[self.fundamental_index])
+        self.imaginary_part = np.imag(fft_result[self.fundamental_index])
+        self.magnitude = np.abs(fft_result[self.fundamental_index])
+        self.phase = np.angle(fft_result[self.fundamental_index])
+        
+        self.damping = self.real_part / (self.omega * self.motionAmp)
+        self.norm_damping = self.damping / (np.pi * self.rho* self.half_breadth**2 * self.omega)
+        self.added_mass = -self.imaginary_part / (self.omega**2 * self.motionAmp)
+        self.norm_added_mass = self.added_mass / (np.pi * self.rho * self.half_breadth**2)                                       
+
+        print(f"\nFundamental Frequency: {self.fundamental_frequency} Hz")
+        print(f"Real Part: {self.real_part}")
+        print(f"Imaginary Part: {self.imaginary_part}")
+        print(f"\nDamping: {self.damping}")
+        print(f"Added mass: {self.added_mass}")
+        print(f"\nNormalized damping: {self.norm_damping}")
+        print(f"Normalized added mass: {self.norm_added_mass}")

@@ -23,7 +23,8 @@ if __name__ == "__main__":
         print("Be sure that the case has been run and you have the right directory!")
         print("Exiting.")
         sys.exit()
-
+    else:
+        print("\n\ncase: " + grid +"\n\n")
     ##################################################################################################################
     # Initialization
     ##################################################################################################################
@@ -218,24 +219,24 @@ if __name__ == "__main__":
     phase1 = np.arctan2(b1, a1)
 
     # Plot for diagnostic purposes
-    plt.figure(figsize=(12, 6))
-    plt.plot(time_truncated_n_periods, Fa_amplitude * np.sin(w * time_truncated_n_periods+phase1), label='Force * sin(wt+phi)')
-    plt.plot(time_truncated_n_periods, forceY_filtered_n_periods-a0, label='Force filtered')
-    plt.xlabel('Time (s)')
-    plt.ylabel('Amplitude')
-    plt.legend()
-    plt.title('Force Components for Integration')
-    plt.show()
+    #plt.figure(figsize=(12, 6))
+    #plt.plot(time_truncated_n_periods, Fa_amplitude * np.sin(w * time_truncated_n_periods+phase1), label='Force * sin(wt+phi)')
+    #plt.plot(time_truncated_n_periods, forceY_filtered_n_periods-a0, label='Force filtered')
+    #plt.xlabel('Time (s)')
+    #plt.ylabel('Amplitude')
+    #plt.legend()
+    #plt.title('Force Components for Integration')
+    #plt.show()
 
 
     # Reconstruct the force using the calculated components
     force_reconstructed_n_periods = a1 * np.cos(w * time_truncated_n_periods) + b1 * np.sin(w * time_truncated_n_periods)
 
     print(f"Force Amplitude: {Fa_amplitude}")
-    print(f"a0 (Mean Force Component): {a0}")
-    print(f"a1 (In-Phase Force Component): {a1}")
-    print(f"b1 (Out-of-Phase Force Component): {b1}")
-    print(f"phase1 shift between force and motion is: {phase1}")
+    #print(f"a0 (Mean Force Component): {a0}")
+    #print(f"a1 (In-Phase Force Component): {a1}")
+    #print(f"b1 (Out-of-Phase Force Component): {b1}")
+    #print(f"phase1 shift between force and motion is: {phase1}")
 
     # Calculate added mass and damping coefficients
     added_mass = (restoringCoeff - a1 / motionAmp) / w**2 - rho*np.pi*R**2/2*Z
@@ -277,15 +278,34 @@ if __name__ == "__main__":
     ##################################################################################################################
 
     #F_in, F_out, num_periods, time_analysis, force_analysis = pop.calculate_force_components(time_truncated, forceY_truncated, w)
-    oc7 = hc.OC7(time_truncated_n_periods, forceY_truncated_n_periods, motionAmp, w, 2*R, rho)
-    Fa = oc7.Fa
-    print(Fa)
+    #oc7 = hc.OC7(time_truncated_n_periods, forceY_truncated_n_periods, motionAmp, w, 2*R, rho)
+    #Fa = oc7.Fa
+    #print(Fa)
     
 
     ##################################################################################################################
     # Calculate the hydrodynamic coefficients using radiated wave - VUGTS (wave damping)
     ##################################################################################################################
 
+    hc.LinearCoefficients(time[min_truncate_index:], forceY[min_truncate_index:], motionAmp, w, draft, rho)
+    hc.LinearCoefficients(time_truncated_n_periods, forceY_filtered_n_periods, motionAmp, w, draft, rho)    
 
-
+    # Plot forces
+    plt.figure(6, figsize=(12, 8), facecolor=color_palette['background_color'])
+    plt.title('Vertical force history on the cylinder')
+    plt.xlabel('Time (s)')
+    plt.ylabel('Fy (N)')
+    plt.plot(time[min_truncate_index:], forceY[min_truncate_index:]-a0, color=color_palette['color1'], alpha=0.8, label='Unfiltered force (N)')
+    plt.plot(time_truncated_n_periods, forceY_filtered_n_periods-a0, color=color_palette['color4'], alpha=1, label='Smoothed force (N)')
+    #plt.plot(peak_times, peak_forceY, linestyle='', marker='o', color=color_palette['color5'], label='max force (N)')
+    y_max = np.max(forceY[min_truncate_index:])
+    yscale = 1.5                                # Adjust the limits as necessary
+    #plt.ylim(-yscale * y_max, yscale * y_max)  
+    plt.tight_layout(rect=[0, 0, 1, 1])         
+    plt.legend(loc='upper right', bbox_to_anchor=(1, 1), fontsize=12)
+    plt.grid(True, color=color_palette['grid_color'])
+    plt.xticks(color=color_palette['text_color'])
+    plt.yticks(color=color_palette['text_color'])
+    plt.savefig(folder_path+"newforces.pdf", dpi=300, format='pdf')
+    plt.close(6)
     #coeffs2 = hc.JorgeMethod()    
