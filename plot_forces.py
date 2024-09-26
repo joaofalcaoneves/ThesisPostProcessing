@@ -11,7 +11,7 @@ from scipy import integrate
 import hydrocoeffs as hc
 
 
-grid = "H1.00_predictorON_t100_L0.25"#/RefinementStudy/meshRefinement/wallFunc/interfaceCompression/H1.00_Coarsest_InterfaceCompression"
+grid = "H1.00_predictorON_t800_L0.5"#/RefinementStudy/meshRefinement/wallFunc/interfaceCompression/H1.00_Coarsest_InterfaceCompression"
 folder_path = "/media/joaofn/nvme-WD/"+grid+"/"
 forces_path = folder_path+"postProcessing/forces/0/"
 forces_file = "forces.dat"
@@ -162,7 +162,7 @@ if __name__ == "__main__":
     average_positive_amplitude = np.average(wave_filtered[1, pos_wavepeaks_indices])
     average_negative_amplitude = np.average(wave_filtered[1, neg_wavepeaks_indices])
     average_amplitude = np.average([average_positive_amplitude, -average_negative_amplitude])
-    print(average_amplitude)
+    print(f'\nAverage wave height: {average_amplitude} m')
 
     # Combine positive and negative peaks into one array
     all_peaks_indices = np.concatenate((pos_wavepeaks_indices, neg_wavepeaks_indices))
@@ -173,7 +173,7 @@ if __name__ == "__main__":
 
     # Plot wave history on probe=location
     plt.figure(3, figsize=(12, 8), facecolor=color_palette['background_color'])
-    plt.title(f'Radiated wave at {(location + 1) * Ldeep:.2f}m from the cylinder')
+    plt.title(f'Radiated wave at {(location + 1) * Ldeep:.2f} m from the cylinder')
     plt.xlabel('Time (s)')
     plt.ylabel('Amplitude (m)')
     plt.plot(wave_history[0], wave_history[1], color=color_palette['color1'], label='radiated wave (m)')
@@ -209,7 +209,13 @@ if __name__ == "__main__":
     poly_order = 3
     forceY_filtered_n_periods = signal.savgol_filter(forceY_truncated_n_periods, window_length, poly_order)
 
-    a0 = (1 / (n_periods * T)) * integrate.simpson(y=forceY_filtered_n_periods, x=time_truncated_n_periods)
+
+    ##################################################################################################################
+    # Using time-domain integration (Fourier series coefficients) to calculate force amplitude and phase lag
+    ##################################################################################################################
+
+    a0 = (1 / (n_periods * T)) * integrate.simpson(y=forceY_filtered_n_periods, x=time_truncated_n_periods) # mean force (buoyancy)
+
     # In-phase (cosine) and out-of-phase (sine) integration    
     a1 = (2 / (n_periods * T)) * integrate.simpson(y=forceY_filtered_n_periods * np.sin(w * time_truncated_n_periods), x=time_truncated_n_periods)
     b1 = (2 / (n_periods * T)) * integrate.simpson(y=forceY_filtered_n_periods * np.cos(w * time_truncated_n_periods), x=time_truncated_n_periods)
@@ -218,38 +224,33 @@ if __name__ == "__main__":
     Fa_amplitude = np.sqrt(a1**2 + b1**2)
     phase1 = np.arctan2(b1, a1)
 
-    # Plot for diagnostic purposes
-    #plt.figure(figsize=(12, 6))
-    #plt.plot(time_truncated_n_periods, Fa_amplitude * np.sin(w * time_truncated_n_periods+phase1), label='Force * sin(wt+phi)')
-    #plt.plot(time_truncated_n_periods, forceY_filtered_n_periods-a0, label='Force filtered')
-    #plt.xlabel('Time (s)')
-    #plt.ylabel('Amplitude')
-    #plt.legend()
-    #plt.title('Force Components for Integration')
-    #plt.show()
+    # Ensure phase1 is in the correct range (0 to 2π)
+    if phase1 < 0:
+        phase1 += 2 * np.pi
 
+    ##################################################################################################################
+    # Calculate the hydrodynamic coefficients using reconstructed force
+    ##################################################################################################################
 
     # Reconstruct the force using the calculated components
     force_reconstructed_n_periods = a1 * np.cos(w * time_truncated_n_periods) + b1 * np.sin(w * time_truncated_n_periods)
 
-    print(f"Force Amplitude: {Fa_amplitude}")
-    #print(f"a0 (Mean Force Component): {a0}")
-    #print(f"a1 (In-Phase Force Component): {a1}")
-    #print(f"b1 (Out-of-Phase Force Component): {b1}")
-    #print(f"phase1 shift between force and motion is: {phase1}")
+    print(f"\nForce Amplitude: {Fa_amplitude} N")
 
-    # Calculate added mass and damping coefficients
+    print(f'\nRestoring coefficient: {restoringCoeff}', f'\nBuoyancy: {a0} N', "\n")
     added_mass = (restoringCoeff - a1 / motionAmp) / w**2 - rho*np.pi*R**2/2*Z
     damping = b1 / (motionAmp * w)
     print(f"Number of periods used: {n_periods}")
-    print(f"Added mass coefficient: {added_mass/(rho*np.pi*draft**2)}")
-    print(f"Damping coefficient: {damping/(rho*np.pi*draft**2*w)}")
+
+    #added mass and damping using 
+    print(f"Added mass coefficient: {added_mass/(rho*np.pi*R**2)}")
+    print(f"Damping coefficient: {damping/(rho*np.pi*R**2*w)}")
 
     coeffs = hc.UzunogluMethod(phase1, Fa_amplitude, motionAmp, w)
     a = coeffs.addedmass
     b = coeffs.damping
-    print(f"Added mass coefficient: {a/(rho*np.pi*draft**2)}")
-    print(f"Damping coefficient: {b/(rho*np.pi*draft**2*w)}")   
+    print(f"Added mass coefficient: {a/(rho*np.pi*R**2)}")
+    print(f"Damping coefficient: {b/(rho*np.pi*R**2*w)}")   
 
 
     # Plot forces
