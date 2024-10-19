@@ -221,7 +221,7 @@ if __name__ == "__main__":
                  label=['Unfiltered force (N)','Smoothed force (N)','Fourier reconstructed force (N)'], 
                  folder_path=folder_path,
                  figurename='peakforces',
-                 linestyle=['solid', 'solid', '--'],
+                 linetype=['solid', 'solid', '--'],
                  alpha=[0.8, 1, 1])
 
     
@@ -230,8 +230,8 @@ if __name__ == "__main__":
     # Calculate the hydrodynamic coefficients using radiated wave - VUGTS (wave damping)
     ##################################################################################################################
 
-    pop.LinearCoefficients(time[min_truncate_index:], forceY[min_truncate_index:], motionAmp, w, draft, rho)
-    pop.LinearCoefficients(time_truncated_n_periods, forceY_filtered_n_periods, motionAmp, w, draft, rho)    
+    pop.LinearCoefficients(time[min_truncate_index:], forceY[min_truncate_index:], motionAmp, w, draft, folder_path, rho)
+    pop.LinearCoefficients(time_truncated_n_periods, forceY_filtered_n_periods, motionAmp, w, draft, folder_path, rho)    
 
     # Plot forces
     pop.makeplot(title='Vertical force on the cylinder',
@@ -242,5 +242,5 @@ if __name__ == "__main__":
                  label=['Unfiltered force (N)','Smoothed force (N)'], 
                  folder_path=folder_path,
                  figurename='periodtruncatedforces',
-                 linestyle=['solid', 'solid'],
+                 linetype=['solid', 'solid'],
                  alpha=[0.8, 1])

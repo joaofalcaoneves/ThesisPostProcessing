@@ -82,8 +82,8 @@ class LinearCoefficients:
         self.norm_added_mass = self.added_mass / (np.pi * self.rho * self.half_breadth**2)                                       
         
         # Print results
-        print(f"\n------------------------------------------------\n")
-        print(f"{type(self).__name__}")               
+        print("\n#######################################################################################")
+        print(f"\n{type(self).__name__}")               
         print(f"------------------------------------------------\n")       
         print(f"\nFundamental Frequency: {self.fundamental_frequency} Hz")
         print(f"Real Part: {self.real_part}")
@@ -92,12 +92,11 @@ class LinearCoefficients:
         print(f"Added mass: {self.added_mass}")
         print(f"\nNormalized damping: {self.norm_damping}")
         print(f"Normalized added mass: {self.norm_added_mass}")
-        print("\n------------------------------------------------\n\n")
-        print(f"{type(self).__name__}")               
-        print(f"------------------------------------------------\n")       
+
+
 
         # Plot forces
-        pop.makeplot(title='Frequency Spectrum of Force Data',
+        makeplot(title='Frequency Spectrum of Force Data',
                     x=[frequencies], 
                     y=[magnitude], 
                     xlabel='Frequency (Hz)', 
@@ -174,36 +173,16 @@ class RadiatedWave:
         return self.wave_history
 
 
-def makeplot(title: str, x, y, xlabel: str, ylabel: str, label, folder_path: str, figurename: str, marker=None, linetype=None):
+def makeplot(title: str, x, y, xlabel: str, ylabel: str, label, folder_path: str, figurename: str, marker=None, linetype=None, alpha=None):
     
-# Initialize default values if not provided
+    # Initialize default values if not provided
     if marker is None:
         marker = ['']  # Default marker if not specified
     if linetype is None:
         linetype = ['solid']  # Default line style if not specified
-    
-    # Ensure y is a numpy array
-    y = np.asarray(y)
-    
-    # Case 1: If x is a single 1D array
-    if isinstance(x, np.ndarray) and x.ndim == 1:
-        # Ensure the length of x matches each row of y
-        for i, yi in enumerate(y):
-            if len(x) != len(yi):
-                raise ValueError(f"Error: The length of X ({len(x)}) must match the length of Y[{i}] ({len(yi)}).")
-    
-    # Case 2: If x is a list of arrays
-    elif isinstance(x, list):
-        # Ensure x[i] is a list or array and compare the length of each x[i] with y[i]
-        for i, xi in enumerate(x):
-            if not isinstance(xi, (list, np.ndarray)):
-                raise TypeError(f"Error: X[{i}] is not an array or list, but a {type(xi)}.")
-            if len(xi) != len(y[i]):
-                raise ValueError(f"Error: X[{i}] has {len(xi)} elements, but Y[{i}] has {len(y[i])} elements.")
-    
-    else:
-        raise ValueError("Error: X must be a list of arrays or a single 1D array.")
-    
+    if alpha is None:
+        alpha = [1]
+
     # Ensure label is a list or array if it isn't already
     if isinstance(label, str):
         label = [label] * len(y)  # If it's a single string, repeat it for each line
@@ -211,16 +190,18 @@ def makeplot(title: str, x, y, xlabel: str, ylabel: str, label, folder_path: str
         label = np.asarray(label)  # Otherwise, convert to array if it's a list
     
     # Definition of the plot's color palette
-    color_palette = {'color1': '#9E91F2', # Cold Lips 
-                     'color2': '#5C548C', # Purple Corallite
-                     'color3': '#ABA0F2', # Dull Lavender
-                     'color4': '#1A1926', # Coarse Wool
-                     'color5': 'orange',  
-                     'background_color': '#ffffff', # White Background
-                     'grid_color': '#F2F2F2',       # Bleached Silk Grid Lines
-                     'text_color': '#333333',       # Dark Gray Text
-                     'title_color': '#333333'}      # Dark Gray Title
- 
+    color_palette = {
+        'color1': '#9E91F2',  # Cold Lips 
+        'color2': '#5C548C',  # Purple Corallite
+        'color3': '#ABA0F2',  # Dull Lavender
+        'color4': '#1A1926',  # Coarse Wool
+        'color5': 'orange',  
+        'background_color': '#ffffff',  # White Background
+        'grid_color': '#F2F2F2',        # Bleached Silk Grid Lines
+        'text_color': '#333333',        # Dark Gray Text
+        'title_color': '#333333'        # Dark Gray Title
+    }
+
     plt.figure(figsize=(12, 8), facecolor=color_palette['background_color'])
     plt.title(title, color=color_palette['title_color'])
     plt.xlabel(xlabel, color=color_palette['text_color'])
@@ -228,25 +209,33 @@ def makeplot(title: str, x, y, xlabel: str, ylabel: str, label, folder_path: str
     
     # Get the list of colors for plotting
     colors = list(color_palette.values())[:5]  # Take only the plot colors, excluding non-line colors
-    
-    # Loop through the rows of y and plot each line with its corresponding x, marker, and line type
-    for i in range(len(y)):
-        # Use the same x array for all y arrays (if x is a single 1D array)
-        x_i = x if isinstance(x, np.ndarray) and x.ndim == 1 else x[i]
-        
-        # Choose a color from the color palette for each line and remove it from the list to avoid repetition
+
+    # Prepare x data if it's a single array
+    if isinstance(x, np.ndarray) or isinstance(x, list):
+        if isinstance(x, np.ndarray) and x.ndim == 1 or isinstance(x, list) and len(x) > 0 and isinstance(x[0], (int, float)):
+            # If x is a single array or a list of numbers, check if all y arrays match its length
+            if not all(len(y_arr) == len(x) for y_arr in y):
+                raise ValueError("When `x` is a single array, it must have the same length as each `y[i]`.")
+            # Duplicate `x` for each y if it is valid
+            x = [x] * len(y)
+
+    # Loop through each y-array and plot
+    for i, _ in enumerate(y):
+        # Choose a color from the color palette
         color = colors[i % len(colors)]
 
         # Get marker and line style for the current line
         marker_style = marker[i] if i < len(marker) else ''
         line_style = linetype[i] if i < len(linetype) else 'solid'
-        
+        alpha_style = alpha[i] if i < len(alpha) else 1
+
         # Plot the line with the chosen color, marker, and line style
-        plt.plot(x_i, y[i], color=color, label=label[i] if i < len(label) else f'Line {i+1}', 
-                 marker=marker_style, linestyle=line_style)
-        
-    y_max = np.max([np.max(y[i]) for i in range(len(y))])
-    y_min = np.min([np.min(y[i]) for i in range(len(y))])
+        plt.plot(x[i], y[i], color=color, label=label[i] if i < len(label) else f'Line {i+1}', 
+                 marker=marker_style, linestyle=line_style, alpha=alpha_style)
+
+    # Adjust y-axis limits
+    y_max = max(np.max(y[i]) for i in range(len(y)))
+    y_min = min(np.min(y[i]) for i in range(len(y)))
     yscale = 1.5  # Adjust the limits as necessary
     plt.ylim(y_min - abs(yscale * y_min), y_max + abs(yscale * y_max))
     
@@ -257,9 +246,9 @@ def makeplot(title: str, x, y, xlabel: str, ylabel: str, label, folder_path: str
     plt.yticks(color=color_palette['text_color'])
     
     # Save the figure
-    plt.savefig(folder_path + figurename + ".pdf", dpi=300, format="pdf")
+    save_path = os.path.join(folder_path, figurename + ".pdf")
+    plt.savefig(save_path, dpi=300, format="pdf")
     plt.close()
-
 
 def process_line(line):
     # Extract time value
