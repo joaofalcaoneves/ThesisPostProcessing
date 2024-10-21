@@ -23,10 +23,10 @@ if __name__ == "__main__":
     if not os.path.isfile(forces_path+forces_file):
         print("Forces file not found at ", forces_path)
         print("Be sure that the case has been run and you have the right directory!")
-        print("Exiting.")
+        print("Exiting...")
         sys.exit()
     else:
-        print("\n\ncase: " + grid +"\n\n")
+        print("\n\nCASE: " + grid)
     ##################################################################################################################
     # Initialization
     ##################################################################################################################
@@ -60,16 +60,16 @@ if __name__ == "__main__":
 
     try:
         # Check for timestep consistency
-        inconsistent_steps = pop.check_time_step_consistency(time, tolerance=1e-6)
-
+        timestep, inconsistent_steps = pop.check_time_step_consistency(time, tolerance=1e-6)
+        
         if not inconsistent_steps:
-            print("Time step is constant")
+            print(f"\nCONSTANT TIME STEP: {timestep}s")
         else:
-            print("Time step is not constant at the following indices and values:")
+            print("\nTime step not constant at the following indices and values:")
             for idx, val in inconsistent_steps:
                 print(f"Index {idx}: Time difference {val}")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"\nAn error occurred: {e}")
 
     # Full motions calculation
     full_motion_signal = [((t / ramp) if t < ramp else 1) * motionAmp * np.sin(w * t) for t in time]
@@ -134,7 +134,7 @@ if __name__ == "__main__":
     average_positive_amplitude = np.average(wave_filtered[1, pos_wavepeaks_indices])
     average_negative_amplitude = np.average(wave_filtered[1, neg_wavepeaks_indices])
     average_amplitude = np.average([average_positive_amplitude, -average_negative_amplitude])
-    print(f'\nAverage wave height: {average_amplitude} m')
+    print(f'\nAVG WAVE AMPLITUDE: {average_amplitude}m')
 
     # Combine positive and negative peaks into one array
     all_peaks_indices = np.concatenate((pos_wavepeaks_indices, neg_wavepeaks_indices))
@@ -142,7 +142,7 @@ if __name__ == "__main__":
     all_wavepeaks_filtered = wave_filtered[:, all_peaks_indices]
 
     # Plot wave history on probe=location
-    pop.makeplot(f'Radiated wave at x={(location + 1) * Ldeep:.2f} m',
+    pop.makeplot(f'Radiated wave at x={(location + 1) * Ldeep:.2f}m',
                  [wave_history[0], all_wavepeaks_filtered[0]], 
                  [wave_history[1], all_wavepeaks_filtered[1]], 
                  'Time (s)', 'Amplitude',
@@ -174,6 +174,9 @@ if __name__ == "__main__":
     ##################################################################################################################
     # Using time-domain integration (Fourier series coefficients) to calculate force amplitude and phase lag
     ##################################################################################################################
+    print("\n#######################################################################################")
+    print("\nUsing time-domain integration (Fourier series coefficients) to \ncalculate force amplitude and phase lag")               
+    print("------------------------------------------------\n") 
 
     a0 = (1 / (n_periods * T)) * integrate.simpson(y=forceY_filtered_n_periods, x=time_truncated_n_periods) # mean force (buoyancy)
 
@@ -189,29 +192,31 @@ if __name__ == "__main__":
     if phase1 < 0:
         phase1 += 2 * np.pi
 
+    print(f"# OF CYCLES: {n_periods}",
+          f"\nFORCE AMPLITUDE: {round(Fa_amplitude)} N",
+          f"\nFORCE/MOTION PHASE: {round(180*phase1/np.pi, 4)} º")
+    
     ##################################################################################################################
     # Calculate the hydrodynamic coefficients using reconstructed force
     ##################################################################################################################
-
+    print("\n#######################################################################################")
+    print("\nCalculating hydrodynamic coefficients from force Fourier series \ncoefficients")               
+    print("------------------------------------------------\n") 
     # Reconstruct the force using the calculated components
-    force_reconstructed_n_periods = a1 * np.cos(w * time_truncated_n_periods) + b1 * np.sin(w * time_truncated_n_periods)
-
-    print(f"\nForce Amplitude: {Fa_amplitude} N")
-
-    print(f'\nRestoring coefficient: {restoringCoeff}', f'\nBuoyancy: {a0} N', "\n")
+    force_reconstructed_n_periods = a1 * np.cos(w * time_truncated_n_periods) + b1 * np.sin(w * time_truncated_n_periods) 
     added_mass = (restoringCoeff - a1 / motionAmp) / w**2 - rho*np.pi*R**2/2*Z
     damping = b1 / (motionAmp * w)
-    print(f"Number of periods used: {n_periods}")
+
+
+    print(f'\nADDED MASS COEFF: {round(added_mass)} N.s²/m',
+          f'\nDAMPING COEFF: {round(damping)} N.s/m',
+          f'\nRESTORING COEFF: {round(restoringCoeff)} N/m', 
+          f'\nBUOYANCY: {round(a0)} N', "\n")
+
 
     #added mass and damping using 
-    print(f"Added mass coefficient: {added_mass/(rho*np.pi*R**2)}")
-    print(f"Damping coefficient: {damping/(rho*np.pi*R**2*w)}")
-
-    coeffs = pop.UzunogluMethod(phase1, Fa_amplitude, motionAmp, w)
-    a = coeffs.addedmass
-    b = coeffs.damping
-    print(f"Added mass coefficient: {a/(rho*np.pi*R**2)}")
-    print(f"Damping coefficient: {b/(rho*np.pi*R**2*w)}")   
+    print(f"NORMALIZED ADDED MASS: {round(added_mass/(rho*np.pi*R**2),4)}")
+    print(f"NORMALIZED DAMPING: {round(damping/(rho*np.pi*R**2*w), 4)}")
 
     pop.makeplot(title='Vertical force on the cylinder',
                  x=[time_truncated, time_truncated_n_periods, time_truncated_n_periods], 
@@ -224,7 +229,19 @@ if __name__ == "__main__":
                  linetype=['solid', 'solid', '--'],
                  alpha=[0.8, 1, 1])
 
-    
+
+    ##################################################################################################################
+    # Calculate the hydrodynamic coefficients using Uzunuglo method
+    ##################################################################################################################
+    print("\n#######################################################################################")
+    print("\nCalculating hydrodynamic coefficients using force amplitude \nand phase")               
+    print("------------------------------------------------\n") 
+
+    coeffs = pop.UzunogluMethod(phase1, Fa_amplitude, motionAmp, w)
+    a = coeffs.addedmass
+    b = coeffs.damping
+    print(f"NORMALIZED ADDED MASS: {a/(rho*np.pi*R**2)}")
+    print(f"NORMALIZED DAMPING: {b/(rho*np.pi*R**2*w)}")       
 
     ##################################################################################################################
     # Calculate the hydrodynamic coefficients using radiated wave - VUGTS (wave damping)

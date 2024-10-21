@@ -84,16 +84,18 @@ class LinearCoefficients:
         # Print results
         print("\n#######################################################################################")
         print(f"\n{type(self).__name__}")               
-        print(f"------------------------------------------------\n")       
-        print(f"\nFundamental Frequency: {self.fundamental_frequency} Hz")
-        print(f"Real Part: {self.real_part}")
-        print(f"Imaginary Part: {self.imaginary_part}")
-        print(f"\nDamping: {self.damping}")
-        print(f"Added mass: {self.added_mass}")
-        print(f"\nNormalized damping: {self.norm_damping}")
-        print(f"Normalized added mass: {self.norm_added_mass}")
+        print(f"------------------------------------------------\n")
 
+        print(f"\nFUNDAMENTAL FREQ: {round(self.fundamental_frequency, 6)} Hz")
+        
+        print(f"\nREAL PART: {round(self.real_part)}",
+              f"\nIMAG PART: {round(self.imaginary_part)}")
 
+        print(f"\nDAMPING: {round(self.damping)} N.s/m",
+              f"\nADDED MASS: {round(self.added_mass)} N.s²/m")
+
+        print(f"\nNORMALIZED DAMPING: {round(self.norm_damping, 4)}",
+              f"\nNORMALIZED ADDED MASS: {round(self.norm_added_mass,4)}")
 
         # Plot forces
         makeplot(title='Frequency Spectrum of Force Data',
