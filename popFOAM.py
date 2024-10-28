@@ -8,10 +8,11 @@ import numpy as np
 from scipy import signal 
 from scipy import integrate
 from pyfiglet import Figlet
- 
+from sklearn.metrics import r2_score
+from scipy.optimize import curve_fit
 
 grid = "H1.00_predictorON_t100_L0.5"#/RefinementStudy/meshRefinement/wallFunc/interfaceCompression/H1.00_Coarsest_InterfaceCompression"
-folder_path = "/media/joaofn/nvme-WD/"+grid+"/"
+folder_path = "/Users/jneves/Documents/Thesis/Results/" # "/media/joaofn/nvme-WD/"+grid+"/"
 forces_path = folder_path+"postProcessing/forces/0/"
 forces_file = "forces.dat"
 
@@ -261,3 +262,18 @@ if __name__ == "__main__":
                  figurename='periodtruncatedforces',
                  linetype=['solid', 'solid'],
                  alpha=[0.8, 1])
+        
+    def cos_func(t, amplitude, phase):
+        return amplitude * np.cos((t * freq) + phase)
+    
+    # Fit cos function to force data
+    popt, pcov = curve_fit(cos_func, time_truncated_n_periods, forceY_truncated_n_periods)
+    forceAmplitude = popt[0]  # Maximum force amplitude given by cos curve fit
+    forcePhase = popt[1]  # Force phase given by cos curve fit
+
+    n = len(time_truncated_n_periods)  # Length of dataframe to use to calculate values for predicted Y force
+    predictedYPressureF = forceAmplitude * np.cos(time_truncated_n_periods * freq + forcePhase)
+
+    rr = r2_score(predictedYPressureF, forceY_truncated_n_periods)  # R² value for force fit
+
+    print(r2_score, forceAmplitude, forcePhase)
