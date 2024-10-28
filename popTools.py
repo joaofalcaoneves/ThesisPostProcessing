@@ -430,7 +430,12 @@ def check_time_step_consistency(time_array, tolerance=1e-6):
         if not np.isclose(current_diff, first_diff, atol=tolerance):
             inconsistent_steps.append((i, current_diff))
 
-    return inconsistent_steps
+    if inconsistent_steps:
+        avg_delta = np.mean([time for _, time in inconsistent_steps])
+    else:
+        avg_delta = first_diff    
+
+    return avg_delta, inconsistent_steps
 
 
 

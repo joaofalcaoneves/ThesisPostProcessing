@@ -11,8 +11,8 @@ from pyfiglet import Figlet
 from sklearn.metrics import r2_score
 from scipy.optimize import curve_fit
 
-grid = "H1.00_predictorON_t100_L0.5"#/RefinementStudy/meshRefinement/wallFunc/interfaceCompression/H1.00_Coarsest_InterfaceCompression"
-folder_path = "/Users/jneves/Documents/Thesis/Results/" # "/media/joaofn/nvme-WD/"+grid+"/"
+grid = "H1.00_predictorON_t100_L0.5"
+folder_path = "/media/joaofn/nvme-WD/"+grid+"/" # "/Users/jneves/Documents/Thesis/Results/"  
 forces_path = folder_path+"postProcessing/forces/0/"
 forces_file = "forces.dat"
 
@@ -38,7 +38,7 @@ if __name__ == "__main__":
     forceY = np.array([])
 
     time, forceX, forceY, _ = pop.createForceFile(forces_path+forces_file)
-    
+     
     g = 9.81                            # acceleration of gravity
     rho = 998.2                         # water density -> be sure to put same as in the simulation!
     draft = 5                           # draft
