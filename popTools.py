@@ -175,8 +175,6 @@ class RadiatedWave:
         
         return self.wave_history
 
-def nondim(coefficient, radius):  # only works for cylinder shapes (radius)
-    return coefficient / (rho * (math.pi / 2) * radius ** 2)
 
 def makeplot(title: str, x, y, xlabel: str, ylabel: str, label, folder_path: str, figurename: str, marker=None, linetype=None, alpha=None):
     
