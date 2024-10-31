@@ -6,7 +6,7 @@ import os
 import pandas as pd
 from scipy import integrate
 from scipy.fftpack import fft, fftfreq
-
+import math
 
 class JorgeMethod:
 
@@ -27,16 +27,17 @@ class JorgeMethod:
 
 class UzunogluMethod:
 
-    def __init__(self, phaselag, hydrodynamicforce, motionamplitude, w):
+    def __init__(self, phaselag, hydrodynamicforce, motionamplitude, w, mass):
         # Passing arguments to instance attributes
         self.phaselag = phaselag
         self.hydrodynamicforce = hydrodynamicforce
         self.motionamplitude = motionamplitude
         self.w = w
+        self.mass = mass
         # Calculates damping and assigns as instance attribute:
         self.damping = self.hydrodynamicforce * np.sin(self.phaselag) / (self.motionamplitude * self.w)
         # Calculates damping and assigns as instance attribute:
-        self.addedmass = -self.hydrodynamicforce * np.cos(self.phaselag) / (self.motionamplitude * self.w ** 2)
+        self.addedmass = -self.hydrodynamicforce * np.cos(self.phaselag) / (self.motionamplitude * self.w ** 2) - self.mass
 
 
 class LinearCoefficients:
@@ -78,9 +79,9 @@ class LinearCoefficients:
 
         # Calculate damping and added mass        
         self.damping = self.real_part / (self.omega * self.motionAmp)
-        self.norm_damping = self.damping / (np.pi * self.rho* self.half_breadth**2 * self.omega)
+        self.norm_damping = 4 * self.damping / (np.pi * self.rho* self.half_breadth**2 * self.omega)
         self.added_mass = -self.imaginary_part / (self.omega**2 * self.motionAmp)
-        self.norm_added_mass = self.added_mass / (np.pi * self.rho * self.half_breadth**2)                                       
+        self.norm_added_mass = 4 * self.added_mass / (np.pi * self.rho * self.half_breadth**2)                                       
         
         # Print results
         print("\n#######################################################################################")
@@ -175,6 +176,10 @@ class RadiatedWave:
         
         return self.wave_history
 
+
+
+def nondim(coefficient, radius, rho = 998.2):  # only works for cylinder shapes (radius)
+    return coefficient / (rho * (math.pi / 2) * radius ** 2)
 
 def makeplot(title: str, x, y, xlabel: str, ylabel: str, label, folder_path: str, figurename: str, marker=None, linetype=None, alpha=None):
     
@@ -436,13 +441,3 @@ def check_time_step_consistency(time_array, tolerance=1e-6):
     return avg_delta, inconsistent_steps
 
 
-
-normalized_frequency_Yeung = [0.08782936010037641, 0.2823086574654956, 0.49560853199498117, 0.6932245922208281, 0.8971141781681305, 1.1041405269761606, 1.2547051442910917, 1.4993726474278546, 1.750313676286073, 2.0984943538268506]
-yeung_damping_normalized = [1.5172413793103448, 1.1282758620689655, 0.786206896551724, 0.6013793103448275, 0.46344827586206894, 0.336551724137931, 0.2786206896551724, 0.21241379310344827, 0.15724137931034482, 0.11310344827586206]
-yeung_addedMass_normalized = [1.2882758620689654, 0.7834482758620689, 0.6179310344827585, 0.5682758620689655, 0.5903448275862069, 0.6041379310344828, 0.6344827586206896, 0.6537931034482758, 0.6979310344827586, 0.7337931034482758]
-
-normalized_frequency_damping_Sutulo = [0.10664993726474278, 0.266624843161857, 0.3575909661229611, 0.4767879548306148, 0.6273525721455459, 0.8155583437892095, 0.9849435382685069, 1.1982434127979924, 1.4084065244667503, 1.6750313676286073, 1.910288582183187, 2.2302383939774155, 2.4843161856963616]
-normalized_damping_Sutulo = [1.5917241379310343, 1.2634482758620689, 1.089655172413793, 0.9020689655172414, 0.7117241379310344, 0.5268965517241379, 0.41379310344827586, 0.30344827586206896, 0.22620689655172413, 0.15724137931034482, 0.1186206896551724, 0.08551724137931034, 0.06620689655172413]
-
-normalized_frequency_addedMass_Sutulo= [0.10351317440401506, 0.1599749058971142, 0.23212045169385195, 0.29799247176913424, 0.3983688833124216, 0.5740276035131744, 0.8124215809284818, 1.0100376411543288, 1.3393977415307403, 1.6405269761606023, 1.932245922208281, 2.22396486825596, 2.487452948557089]
-normalized_addedMass_Sutulo = [1.246896551724138, 1.0786206896551724, 0.8855172413793103, 0.7806896551724137, 0.6868965517241379, 0.5958620689655172, 0.5682758620689655, 0.5793103448275861, 0.6317241379310344, 0.6786206896551724, 0.7227586206896551, 0.7586206896551724, 0.7806896551724137]

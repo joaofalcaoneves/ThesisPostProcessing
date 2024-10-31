@@ -40,6 +40,9 @@ if __name__ == "__main__":
 
         time, forceX, forceY, _ = pop.createForceFile(forces_path+forces_file)
         
+        pop.yplus(folder_path, 'floatingObj')
+        
+        mass = 0                            # mass of cylinder
         g = 9.81                            # acceleration of gravity
         rho = 998.2                         # water density -> be sure to put same as in the simulation!
         draft = 5                           # draft
@@ -93,9 +96,8 @@ if __name__ == "__main__":
         ##################################################################################################################
 
         # Time truncation    
-        min_truncate_index = np.argmax(time >= truncMin)
-        max_truncate_index = np.argmax(time >= truncMax)
-
+        min_truncate_index = np.searchsorted(time, truncMin)
+        max_truncate_index = np.searchsorted(time, truncMax)
         time_truncated = time[min_truncate_index:max_truncate_index]
 
         motion_signal = [((t / ramp) if t < ramp else 1) * motionAmp * np.sin(w * t) for t in time_truncated]
@@ -118,7 +120,6 @@ if __name__ == "__main__":
         # Freesurface calculation
         ##################################################################################################################
 
-        pop.yplus(folder_path, 'floatingObj')
         location = 1
         radiated_wave = pop.RadiatedWave(waveperiod=T, mainfolderpath=folder_path)
         radiated_wave.freesurfaceelevation(probe=location, relBottom=False)
@@ -197,7 +198,6 @@ if __name__ == "__main__":
         phase1 = np.arctan2(b1, a1)
 
         # Ensure phase1 is in the correct range (0 to 2π)
-        phase1 = np.arctan2(np.sin(phase1), np.cos(phase1))
         if phase1 < 0:
             phase1 += 2 * np.pi
 
@@ -213,8 +213,8 @@ if __name__ == "__main__":
         print("------------------------------------------------\n") 
         # Reconstruct the force using the calculated components
         force_reconstructed_n_periods = a1 * np.cos(w * time_truncated_n_periods) + b1 * np.sin(w * time_truncated_n_periods) 
-        added_mass = (restoringCoeff - a1 / motionAmp) / w**2 - rho*np.pi*R**2/2*Z
-        damping = b1 / (motionAmp * w)
+        added_mass = (restoringCoeff - Fa_amplitude * np.cos(phase1) / motionAmp) / w**2
+        damping = (Fa_amplitude * np.sin(phase1)) / (motionAmp * w)
 
 
         print(f'\nADDED MASS COEFF: {round(added_mass)} N.s²/m',
@@ -224,8 +224,8 @@ if __name__ == "__main__":
 
 
         #added mass and damping using 
-        print(f"NORMALIZED ADDED MASS: {round(added_mass/(rho*np.pi*R**2),4)}")
-        print(f"NORMALIZED DAMPING: {round(damping/(rho*np.pi*R**2*w), 4)}")
+        print(f"NORMALIZED ADDED MASS: {round(4*added_mass/(rho*np.pi*R**2),4)}")
+        print(f"NORMALIZED DAMPING: {round(4*damping/(rho*np.pi*R**2*w), 4)}")
 
 
         ##################################################################################################################
@@ -235,11 +235,11 @@ if __name__ == "__main__":
         print("\nCalculating hydrodynamic coefficients using force amplitude \nand phase")               
         print("------------------------------------------------\n") 
 
-        coeffs = pop.UzunogluMethod(phase1, Fa_amplitude, motionAmp, w)
+        coeffs = pop.UzunogluMethod(phase1, Fa_amplitude, motionAmp, w, mass)
         a = coeffs.addedmass
         b = coeffs.damping
-        print(f"NORMALIZED ADDED MASS: {a/(rho*np.pi*R**2)}")
-        print(f"NORMALIZED DAMPING: {b/(rho*np.pi*R**2*w)}")       
+        print(f"NORMALIZED ADDED MASS: {4*a/(rho*np.pi*R**2)}")
+        print(f"NORMALIZED DAMPING: {4*b/(rho*np.pi*R**2*w)}")       
 
         ##################################################################################################################
         # Calculate the hydrodynamic coefficients using radiated wave - VUGTS (wave damping)
@@ -281,8 +281,8 @@ if __name__ == "__main__":
         print(f"\nFORCE AMPLITUDE: {round(forceAmplitude)} N",
             f"\nFORCE/MOTION PHASE: {round(180*forcePhase/np.pi, 2)}º")
         
-        old = pop.UzunogluMethod(forcePhase, forceAmplitude, motionAmp, w)
-        print(old.addedmass/(rho*np.pi*R**2), old.damping/(rho*np.pi*R**2*w))
+        old = pop.UzunogluMethod(forcePhase, forceAmplitude, motionAmp, w, mass)
+        print(4*old.addedmass/(rho*np.pi*R**2), 4*old.damping/(rho*np.pi*R**2*w))
 
         pop.makeplot(title='Vertical force on the cylinder',
                     x=[time_truncated, time_truncated_n_periods, time_truncated_n_periods, time_truncated_n_periods], 
@@ -298,12 +298,10 @@ if __name__ == "__main__":
 
         ##################################################################################################################
         # Print results
-        #################################################################################################################        print(f"\nFUNDAMENTAL FREQ: {round(self.fundamental_frequency, 6)} Hz")
+        #################################################################################################################
 
-        headers = ['Data', 'Force (N)', 'Phase (º)', 'u', 'v', 'u\'', 'v\'']
-        table = [['Time domain integration - Fourier Series', round(Fa_amplitude), round(180*phase1/np.pi, 2), round(added_mass), round(damping), round(added_mass/(rho*np.pi*R**2),4), round(damping/(rho*np.pi*R**2*w), 4)],
-                 [],
-                 [],
-                 [],
-                 []]
-        print(tabulate()) 
+        jorge1 = pop.JorgeMethod(accelAmp, velAmp, motionAmp, Fa_amplitude, average_positive_amplitude, w, rho) 
+        jorge2 = pop.JorgeMethod(accelAmp, velAmp, motionAmp, forceAmplitude, average_positive_amplitude, w, rho)        
+
+        print(round(4*jorge1.damping/(rho*np.pi*R**2*w), 4), round(4*jorge1.addedmass/(rho*np.pi*R**2),4))
+        print(round(4*jorge2.damping/(rho*np.pi*R**2*w), 4), round(4*jorge2.addedmass/(rho*np.pi*R**2),4))
