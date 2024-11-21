@@ -68,7 +68,7 @@ class LinearCoefficients:
         magnitude = magnitude[positive_frequencies]        
 
         # Find the index of the frequency closest to the excitation frequency
-        self.fundamental_index = np.argmax(frequencies>0)
+        self.fundamental_index = np.argmax(frequencies)
         self.fundamental_frequency = frequencies[self.fundamental_index]
 
         # Extract the real and imaginary parts at the fundamental frequency

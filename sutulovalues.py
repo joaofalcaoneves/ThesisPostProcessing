@@ -19,7 +19,10 @@ damping_interp = interp1d(Sutulo_normalized_frequency_damping, Sutulo_normalized
 addedMass_interp = interp1d(Sutulo_normalized_frequency_addedMass, Sutulo_normalized_addedMass, kind='cubic')      # Cubic interpolation
 
 # New x values for interpolation
-w = 0.5
+w = [0.5, 1]
+
+u_prime = [0.6252299666117472, 1.3968]
+v_prime = [0.8699172505105083, 0.5396]
 
 # Interpolated values of y(x)
 damping = damping_interp(w)
@@ -28,6 +31,8 @@ addedMass = addedMass_interp(w)
 # Plot the results
 plt.plot(w, damping, 'o', label="damping")
 plt.plot(w, addedMass, 'o', label="added mass")
+plt.plot(w, v_prime, 'x', label="damping")
+plt.plot(w, u_prime, 'x', label="added mass")
 plt.plot(Sutulo_normalized_frequency_addedMass, Sutulo_normalized_addedMass, '-', label="addedMass")
 plt.plot(Sutulo_normalized_frequency_damping, Sutulo_normalized_damping, '--', label="Damping")
 plt.xlabel("w")
@@ -36,5 +41,3 @@ plt.show()
 
 print(addedMass, damping)
 
-u_prime = 0.6252299666117472 
-v_prime = 0.8699172505105083

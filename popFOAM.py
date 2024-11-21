@@ -11,7 +11,12 @@ from sklearn.metrics import r2_score
 from scipy.optimize import curve_fit
 from tabulate import tabulate
 
-grid = "H1.00_predictorON_t100_L0.5"
+caseDict = {"H1":0.20, "H2":0.35, "H3":0.5, "H4" :0.75, "H5" :1.0, "H6":1.25,
+            "H7":1.50, "H8":1.75, "H9":2.0, "H10":2.25, "H11":2.25}
+case = "H5"
+case_time = "400"
+case_level = "05"
+grid = f"{case}/{case}_L05/{case}_predictorON_t{case_time}_L{case_level}"
 folder_path = "/media/joaofn/nvme-WD/"+grid+"/" # "/Users/jneves/Documents/Thesis/Results/"  
 forces_path = folder_path+"postProcessing/forces/0/"
 forces_file = "forces.dat"
@@ -47,7 +52,7 @@ if __name__ == "__main__":
         rho = 998.2                         # water density -> be sure to put same as in the simulation!
         draft = 5                           # draft
         motionAmp = 0.5                     # motion amplitude
-        wprime = 1                          # normalized radial frequency
+        wprime = caseDict[case]             # normalized radial frequency
         w = np.sqrt(wprime * g / draft)     # radial frequency    
         velAmp = motionAmp * w              # velocity amplitude
         accelAmp = velAmp * w               # acceleration amplitude
@@ -55,8 +60,8 @@ if __name__ == "__main__":
         freq = 1 / T                        # frequency    
         Ldeep = g / (2 * math.pi) * (T**2)  # length of wave in deep water
         truncMax = np.max(time)             # max time to analyze
-        truncMin = 1.9 * T                  # min time to analyze
-        ramp = 0 * T                        # transient time
+        truncMin = 2 * T                    # min time to analyze
+        ramp = 3 * T                        # transient time
         R = draft                           # radius of the cylinder = draft
         Z = 1                               # 2D domain depth in Z    
         Awp = 2 * R * Z                     # waterplane area
@@ -120,7 +125,7 @@ if __name__ == "__main__":
         # Freesurface calculation
         ##################################################################################################################
 
-        location = 1
+        location = 2
         radiated_wave = pop.RadiatedWave(waveperiod=T, mainfolderpath=folder_path)
         radiated_wave.freesurfaceelevation(probe=location, relBottom=False)
         wave_history = radiated_wave.wave_history
@@ -175,7 +180,7 @@ if __name__ == "__main__":
         forceY_truncated_n_periods = forceY_truncated[start_index:]
 
         # Smooth the force data
-        window_length = 51  # Ensure this is appropriate for your data
+        window_length = 21  # Ensure this is appropriate for your data
         poly_order = 3
         forceY_filtered_n_periods = signal.savgol_filter(forceY_truncated_n_periods, window_length, poly_order)
 
@@ -195,11 +200,14 @@ if __name__ == "__main__":
 
         # Calculate the amplitude and phase of the force
         Fa_amplitude = np.sqrt(a1**2 + b1**2)
-        phase1 = np.arctan2(b1, a1)
+        phase1 = np.arctan2(b1, a1) #+ np.pi
 
         # Ensure phase1 is in the correct range (0 to 2π)
         if phase1 < 0:
             phase1 += 2 * np.pi
+
+        elif phase1 > 2 * np.pi:
+            phase1-= 2 * np.pi
 
         print(f"# OF CYCLES: {n_periods}",
             f"\nFORCE AMPLITUDE: {round(Fa_amplitude)} N",
@@ -212,8 +220,8 @@ if __name__ == "__main__":
         print("\nCalculating hydrodynamic coefficients from force Fourier series \ncoefficients")               
         print("------------------------------------------------\n") 
         # Reconstruct the force using the calculated components
-        force_reconstructed_n_periods = a1 * np.cos(w * time_truncated_n_periods) + b1 * np.sin(w * time_truncated_n_periods) 
-        added_mass = (restoringCoeff - Fa_amplitude * np.cos(phase1) / motionAmp) / w**2
+        force_reconstructed_n_periods = a1 * np.cos(w * time_truncated_n_periods) + b1 * np.sin(w * time_truncated_n_periods) #Fa_amplitude*np.sin(w*time_truncated_n_periods + phase1)
+        added_mass = (restoringCoeff - (Fa_amplitude / motionAmp) * np.cos(phase1)) / w**2
         damping = (Fa_amplitude * np.sin(phase1)) / (motionAmp * w)
 
 
@@ -264,9 +272,9 @@ if __name__ == "__main__":
             return amplitude * np.sin((t * w) + phase)
         
         # Fit cos function to force data
-        popt, pcov = curve_fit(sin_func, time_truncated_n_periods, forceY_truncated_n_periods)
-        forceAmplitude = popt[0]  # Maximum force amplitude given by cos curve fit
-        forcePhase = popt[1]  # Force phase given by cos curve fit
+        constants = curve_fit(sin_func, time_truncated_n_periods, forceY_truncated_n_periods)
+        forceAmplitude = constants[0][0]  # Maximum force amplitude given by cos curve fit
+        forcePhase = constants[0][1]  # Force phase given by cos curve fit
 
         # Ensure phase1 is in the correct range (0 to 2π)
         forcePhase = np.arctan2(np.sin(forcePhase), np.cos(forcePhase))
@@ -275,8 +283,6 @@ if __name__ == "__main__":
         predictedYPressureF = sin_func(time_truncated_n_periods, forceAmplitude, forcePhase)
 
         rr = r2_score(predictedYPressureF, forceY_truncated_n_periods)  # R² value for force fit
-
-        print(len(predictedYPressureF),len(time_truncated_n_periods))
 
         print(f"\nFORCE AMPLITUDE: {round(forceAmplitude)} N",
             f"\nFORCE/MOTION PHASE: {round(180*forcePhase/np.pi, 2)}º")
