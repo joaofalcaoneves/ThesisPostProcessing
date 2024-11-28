@@ -21,8 +21,8 @@ addedMass_interp = interp1d(Sutulo_normalized_frequency_addedMass, Sutulo_normal
 # New x values for interpolation
 w = [0.5, 1]
 
-u_prime = [0.6252299666117472, 1.3968]
-v_prime = [0.8699172505105083, 0.5396]
+u_prime = [0.6252299666117472, 1.5678]
+v_prime = [0.8699172505105083, 0.3566]
 
 # Interpolated values of y(x)
 damping = damping_interp(w)

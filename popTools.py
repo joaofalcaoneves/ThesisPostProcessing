@@ -42,16 +42,17 @@ class UzunogluMethod:
 
 class LinearCoefficients:
 
-    def __init__(self, time: np.ndarray, force: np.ndarray, motionAmp: float, omega: float, half_breadth: float, folder_path: str, rho: float = 998.2) -> None:
+    def __init__(self, timestep: float,  time: np.ndarray, force: np.ndarray, motionAmp: float, omega: float, half_breadth: float, folder_path: str, title: str, rho: float = 998.2) -> None:
         # By default only use the second half of the data
         self.time = time
-        self.time_step = time[1]-time[0]
+        self.time_step = timestep
         self.force = force
         self.omega = omega
         self.motionAmp = motionAmp
         self.velAmp = omega * self.motionAmp
         self.acelAmp = omega**2 * self.motionAmp
         self.half_breadth = half_breadth
+        self.fig_title = title
         self.rho = rho
 
         # Perform FFT
@@ -85,7 +86,7 @@ class LinearCoefficients:
         
         # Print results
         print("\n#######################################################################################")
-        print(f"\n{type(self).__name__}")               
+        print(f"\npopTools.py {type(self).__name__} class output")               
         print(f"------------------------------------------------\n")
 
         print(f"\nFUNDAMENTAL FREQ: {round(self.fundamental_frequency, 6)} Hz")
@@ -98,16 +99,21 @@ class LinearCoefficients:
 
         print(f"\nNORMALIZED DAMPING: {round(self.norm_damping, 4)}",
               f"\nNORMALIZED ADDED MASS: {round(self.norm_added_mass,4)}")
+        
+        print("------------------------------------------------\n")
+        print("                  end output                    \n")
+        print("------------------------------------------------\n")
 
         # Plot forces
         makeplot(title='Frequency Spectrum of Force Data',
-                    x=[frequencies], 
-                    y=[magnitude], 
+                    x=[frequencies[frequencies < 1]], 
+                    y=[magnitude[frequencies < 1]], 
                     xlabel='Frequency (Hz)', 
                     ylabel='Magnitude',
-                    label=[], 
+                    label=[],
+                    marker='o', 
                     folder_path=folder_path,
-                    figurename='spectrum')
+                    figurename=f'{self.fig_title}spectrum')
 
 
 class RadiatedWave:
@@ -199,11 +205,11 @@ def makeplot(title: str, x, y, xlabel: str, ylabel: str, label, folder_path: str
     
     # Definition of the plot's color palette
     color_palette = {
-        'color1': '#9E91F2',  # Cold Lips 
-        'color2': '#5C548C',  # Purple Corallite
-        'color3': '#ABA0F2',  # Dull Lavender
-        'color4': '#1A1926',  # Coarse Wool
-        'color5': 'orange',  
+        'color1': '#FFBC42',            # 
+        'color2': '#D81159',            # 
+        'color3': '#8F2D56',            # 
+        'color4': '#218380',            # 
+        'color5': '73D2DE',             # 
         'background_color': '#ffffff',  # White Background
         'grid_color': '#F2F2F2',        # Bleached Silk Grid Lines
         'text_color': '#333333',        # Dark Gray Text

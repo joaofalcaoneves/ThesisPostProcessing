@@ -12,11 +12,11 @@ from scipy.optimize import curve_fit
 from tabulate import tabulate
 
 caseDict = {"H1":0.20, "H2":0.35, "H3":0.5, "H4" :0.75, "H5" :1.0, "H6":1.25,
-            "H7":1.50, "H8":1.75, "H9":2.0, "H10":2.25, "H11":2.25}
+            "H7":1.50, "H8":1.75, "H9":2.0, "H10":2.25, "H11":2.50}
 case = "H5"
-case_time = "400"
+case_time = "800"
 case_level = "05"
-grid = f"{case}/{case}_L05/{case}_predictorON_t{case_time}_L{case_level}"
+grid = f"{case}/{case}_L{case_level}/{case}_predictorON_t{case_time}_L{case_level}"
 folder_path = "/media/joaofn/nvme-WD/"+grid+"/" # "/Users/jneves/Documents/Thesis/Results/"  
 forces_path = folder_path+"postProcessing/forces/0/"
 forces_file = "forces.dat"
@@ -29,7 +29,7 @@ if __name__ == "__main__":
     if not os.path.isfile(forces_path+forces_file):
         print("Forces file not found at ", forces_path)
         print("Be sure that the case has been run and you have the right directory!")
-        print("Exiting...")
+        print("Exiting...\n\n")
         sys.exit()
     else:
         print("\n\nCASE: " + grid)
@@ -78,6 +78,7 @@ if __name__ == "__main__":
                 print("\nTime step not constant at the following indices and values:")
                 for idx, val in inconsistent_steps:
                     print(f"Index {idx}: Time difference {val}")
+                print(f"\nAvg timestep is: {timestep}s")
         except Exception as e:
             print(f"\nAn error occurred: {e}")
 
@@ -125,7 +126,7 @@ if __name__ == "__main__":
         # Freesurface calculation
         ##################################################################################################################
 
-        location = 2
+        location = 1
         radiated_wave = pop.RadiatedWave(waveperiod=T, mainfolderpath=folder_path)
         radiated_wave.freesurfaceelevation(probe=location, relBottom=False)
         wave_history = radiated_wave.wave_history
@@ -200,8 +201,8 @@ if __name__ == "__main__":
 
         # Calculate the amplitude and phase of the force
         Fa_amplitude = np.sqrt(a1**2 + b1**2)
-        phase1 = np.arctan2(b1, a1) #+ np.pi
-
+        phase1 = np.arctan2(b1, a1) + np.pi
+    
         # Ensure phase1 is in the correct range (0 to 2π)
         if phase1 < 0:
             phase1 += 2 * np.pi
@@ -253,13 +254,13 @@ if __name__ == "__main__":
         # Calculate the hydrodynamic coefficients using radiated wave - VUGTS (wave damping)
         ##################################################################################################################
 
-        pop.LinearCoefficients(time[min_truncate_index:], forceY[min_truncate_index:], motionAmp, w, draft, folder_path, rho)
-        pop.LinearCoefficients(time_truncated_n_periods, forceY_filtered_n_periods, motionAmp, w, draft, folder_path, rho)    
+        pop.LinearCoefficients(timestep, time_truncated, forceY_truncated, motionAmp, w, draft, folder_path, "original_force_", rho)
+        pop.LinearCoefficients(timestep, time_truncated_n_periods, forceY_filtered_n_periods, motionAmp, w, draft, folder_path, "filtered_force_", rho)    
 
         # Plot forces
         pop.makeplot(title='Vertical force on the cylinder',
-                    x=[time[min_truncate_index:], time_truncated_n_periods], 
-                    y=[forceY[min_truncate_index:]-a0, forceY_filtered_n_periods-a0], 
+                    x=[time_truncated, time_truncated_n_periods], 
+                    y=[forceY_truncated-a0, forceY_filtered_n_periods-a0], 
                     xlabel='Time (s)', 
                     ylabel='Force (N)',
                     label=['Unfiltered force (N)','Smoothed force (N)'], 
@@ -273,21 +274,21 @@ if __name__ == "__main__":
         
         # Fit cos function to force data
         constants = curve_fit(sin_func, time_truncated_n_periods, forceY_truncated_n_periods)
-        forceAmplitude = constants[0][0]  # Maximum force amplitude given by cos curve fit
-        forcePhase = constants[0][1]  # Force phase given by cos curve fit
+        force_amplitude_sin_fit = abs(constants[0][0])  # Maximum force amplitude given by cos curve fit
+        force_phase_sin_fit = constants[0][1]  # Force phase given by cos curve fit
 
         # Ensure phase1 is in the correct range (0 to 2π)
-        forcePhase = np.arctan2(np.sin(forcePhase), np.cos(forcePhase))
-        if forcePhase < 0:
-            forcePhase += 2 * np.pi
-        predictedYPressureF = sin_func(time_truncated_n_periods, forceAmplitude, forcePhase)
+        force_phase_sin_fit = np.arctan2(np.sin(force_phase_sin_fit), np.cos(force_phase_sin_fit))
+        if force_phase_sin_fit < 0:
+            force_phase_sin_fit += 2 * np.pi
+        predictedYPressureF = sin_func(time_truncated_n_periods, force_amplitude_sin_fit, force_phase_sin_fit)
 
         rr = r2_score(predictedYPressureF, forceY_truncated_n_periods)  # R² value for force fit
 
-        print(f"\nFORCE AMPLITUDE: {round(forceAmplitude)} N",
-            f"\nFORCE/MOTION PHASE: {round(180*forcePhase/np.pi, 2)}º")
+        print(f"\nFORCE AMPLITUDE: {round(force_amplitude_sin_fit)} N",
+            f"\nFORCE/MOTION PHASE: {round(180*force_phase_sin_fit/np.pi, 2)}º")
         
-        old = pop.UzunogluMethod(forcePhase, forceAmplitude, motionAmp, w, mass)
+        old = pop.UzunogluMethod(force_phase_sin_fit, force_amplitude_sin_fit, motionAmp, w, mass)
         print(4*old.addedmass/(rho*np.pi*R**2), 4*old.damping/(rho*np.pi*R**2*w))
 
         pop.makeplot(title='Vertical force on the cylinder',
@@ -307,7 +308,7 @@ if __name__ == "__main__":
         #################################################################################################################
 
         jorge1 = pop.JorgeMethod(accelAmp, velAmp, motionAmp, Fa_amplitude, average_positive_amplitude, w, rho) 
-        jorge2 = pop.JorgeMethod(accelAmp, velAmp, motionAmp, forceAmplitude, average_positive_amplitude, w, rho)        
+        jorge2 = pop.JorgeMethod(accelAmp, velAmp, motionAmp, force_amplitude_sin_fit, average_positive_amplitude, w, rho)        
 
         print(round(4*jorge1.damping/(rho*np.pi*R**2*w), 4), round(4*jorge1.addedmass/(rho*np.pi*R**2),4))
         print(round(4*jorge2.damping/(rho*np.pi*R**2*w), 4), round(4*jorge2.addedmass/(rho*np.pi*R**2),4))
