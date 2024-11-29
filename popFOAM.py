@@ -137,12 +137,12 @@ if __name__ == "__main__":
         wave_filtered = wave_history[:, mask]
 
         # Find wave peaks
-        pos_wavepeaks_indices, _ = signal.find_peaks(wave_filtered[1], threshold=None)
-        neg_wavepeaks_indices, _ = signal.find_peaks(-1*wave_filtered[1], threshold=None)
+        pos_wavepeaks_indices, _ = signal.find_peaks(wave_filtered[1], height=0, threshold=None)
+        neg_wavepeaks_indices, _ = signal.find_peaks(-wave_filtered[1], height=0, threshold=None)        
         
         average_positive_amplitude = np.average(wave_filtered[1, pos_wavepeaks_indices])
-        average_negative_amplitude = np.average(wave_filtered[1, neg_wavepeaks_indices])
-        average_amplitude = np.average([average_positive_amplitude, -average_negative_amplitude])
+        average_negative_amplitude = -np.average(wave_filtered[1, neg_wavepeaks_indices])
+        average_amplitude = np.average([average_positive_amplitude, average_negative_amplitude])
         print(f'\nAVG WAVE AMPLITUDE: {average_amplitude}m')
 
         # Combine positive and negative peaks into one array
@@ -200,19 +200,20 @@ if __name__ == "__main__":
         b1 = (2 / (n_periods * T)) * integrate.simpson(y=forceY_filtered_n_periods * np.cos(w * time_truncated_n_periods), x=time_truncated_n_periods)
 
         # Calculate the amplitude and phase of the force
-        Fa_amplitude = np.sqrt(a1**2 + b1**2)
-        phase1 = np.arctan2(b1, a1) + np.pi
-    
-        # Ensure phase1 is in the correct range (0 to 2π)
-        if phase1 < 0:
-            phase1 += 2 * np.pi
+        force_amplitude_fourier = np.sqrt(a1**2 + b1**2)
+        force_phase_fourier = np.arctan2(b1, a1)
 
-        elif phase1 > 2 * np.pi:
-            phase1-= 2 * np.pi
+        print(force_phase_fourier)
+
+        # Ensure force_phase_fourier is in the correct range (0 to π/2)
+        if force_phase_fourier > np.pi/2:
+            force_phase_fourier = np.pi - force_phase_fourier
+
+        print(force_phase_fourier)
 
         print(f"# OF CYCLES: {n_periods}",
-            f"\nFORCE AMPLITUDE: {round(Fa_amplitude)} N",
-            f"\nFORCE/MOTION PHASE: {round(180*phase1/np.pi, 2)}º")
+            f"\nFORCE AMPLITUDE: {round(force_amplitude_fourier)} N",
+            f"\nFORCE/MOTION PHASE: {round(180*force_phase_fourier/np.pi, 2)}º")
         
         ##################################################################################################################
         # Calculate the hydrodynamic coefficients using reconstructed force
@@ -221,9 +222,9 @@ if __name__ == "__main__":
         print("\nCalculating hydrodynamic coefficients from force Fourier series \ncoefficients")               
         print("------------------------------------------------\n") 
         # Reconstruct the force using the calculated components
-        force_reconstructed_n_periods = a1 * np.cos(w * time_truncated_n_periods) + b1 * np.sin(w * time_truncated_n_periods) #Fa_amplitude*np.sin(w*time_truncated_n_periods + phase1)
-        added_mass = (restoringCoeff - (Fa_amplitude / motionAmp) * np.cos(phase1)) / w**2
-        damping = (Fa_amplitude * np.sin(phase1)) / (motionAmp * w)
+        force_reconstructed_n_periods = a1 * np.cos(w * time_truncated_n_periods) + b1 * np.sin(w * time_truncated_n_periods) #force_amplitude_fourier*np.sin(w*time_truncated_n_periods + force_phase_fourier)
+        added_mass = (restoringCoeff - (force_amplitude_fourier / motionAmp) * np.cos(force_phase_fourier)) / w**2
+        damping = (force_amplitude_fourier * np.sin(force_phase_fourier)) / (motionAmp * w)
 
 
         print(f'\nADDED MASS COEFF: {round(added_mass)} N.s²/m',
@@ -244,7 +245,7 @@ if __name__ == "__main__":
         print("\nCalculating hydrodynamic coefficients using force amplitude \nand phase")               
         print("------------------------------------------------\n") 
 
-        coeffs = pop.UzunogluMethod(phase1, Fa_amplitude, motionAmp, w, mass)
+        coeffs = pop.UzunogluMethod(force_phase_fourier, force_amplitude_fourier, motionAmp, w, mass)
         a = coeffs.addedmass
         b = coeffs.damping
         print(f"NORMALIZED ADDED MASS: {4*a/(rho*np.pi*R**2)}")
@@ -277,16 +278,19 @@ if __name__ == "__main__":
         force_amplitude_sin_fit = abs(constants[0][0])  # Maximum force amplitude given by cos curve fit
         force_phase_sin_fit = constants[0][1]  # Force phase given by cos curve fit
 
-        # Ensure phase1 is in the correct range (0 to 2π)
+        # Ensure force_phase_fourier is in the correct range (0 to π/2)
         force_phase_sin_fit = np.arctan2(np.sin(force_phase_sin_fit), np.cos(force_phase_sin_fit))
-        if force_phase_sin_fit < 0:
-            force_phase_sin_fit += 2 * np.pi
+
+        if force_phase_sin_fit > np.pi/2:
+            force_phase_sin_fit = np.pi - force_phase_sin_fit
+
         predictedYPressureF = sin_func(time_truncated_n_periods, force_amplitude_sin_fit, force_phase_sin_fit)
 
-        rr = r2_score(predictedYPressureF, forceY_truncated_n_periods)  # R² value for force fit
+        rr = r2_score(forceY_truncated_n_periods, predictedYPressureF)  # R² value for force fit
 
         print(f"\nFORCE AMPLITUDE: {round(force_amplitude_sin_fit)} N",
-            f"\nFORCE/MOTION PHASE: {round(180*force_phase_sin_fit/np.pi, 2)}º")
+            f"\nFORCE/MOTION PHASE: {round(180*force_phase_sin_fit/np.pi, 2)}º",
+            f"\nR² score is: {rr}")
         
         old = pop.UzunogluMethod(force_phase_sin_fit, force_amplitude_sin_fit, motionAmp, w, mass)
         print(4*old.addedmass/(rho*np.pi*R**2), 4*old.damping/(rho*np.pi*R**2*w))
@@ -307,8 +311,8 @@ if __name__ == "__main__":
         # Print results
         #################################################################################################################
 
-        jorge1 = pop.JorgeMethod(accelAmp, velAmp, motionAmp, Fa_amplitude, average_positive_amplitude, w, rho) 
-        jorge2 = pop.JorgeMethod(accelAmp, velAmp, motionAmp, force_amplitude_sin_fit, average_positive_amplitude, w, rho)        
+        jorge1 = pop.JorgeMethod(accelAmp, velAmp, motionAmp, force_amplitude_fourier, average_amplitude, w, rho) 
+        jorge2 = pop.JorgeMethod(accelAmp, velAmp, motionAmp, force_amplitude_sin_fit, average_amplitude, w, rho)        
 
         print(round(4*jorge1.damping/(rho*np.pi*R**2*w), 4), round(4*jorge1.addedmass/(rho*np.pi*R**2),4))
         print(round(4*jorge2.damping/(rho*np.pi*R**2*w), 4), round(4*jorge2.addedmass/(rho*np.pi*R**2),4))

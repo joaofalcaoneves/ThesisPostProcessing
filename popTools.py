@@ -211,7 +211,7 @@ def makeplot(title: str, x, y, xlabel: str, ylabel: str, label, folder_path: str
         'color4': '#218380',            # 
         'color5': '73D2DE',             # 
         'background_color': '#ffffff',  # White Background
-        'grid_color': '#F2F2F2',        # Bleached Silk Grid Lines
+        'grid_color': '#d3d3d3',        # Bleached Silk Grid Lines
         'text_color': '#333333',        # Dark Gray Text
         'title_color': '#333333'        # Dark Gray Title
     }
@@ -250,15 +250,16 @@ def makeplot(title: str, x, y, xlabel: str, ylabel: str, label, folder_path: str
     # Adjust y-axis limits
     y_max = max(np.max(y[i]) for i in range(len(y)))
     y_min = min(np.min(y[i]) for i in range(len(y)))
-    yscale = 1.5  # Adjust the limits as necessary
+    yscale = 0.25  # Adjust the limits as necessary
     plt.ylim(y_min - abs(yscale * y_min), y_max + abs(yscale * y_max))
     
     plt.tight_layout(rect=[0, 0, 1, 1])
     plt.legend(loc='upper right', bbox_to_anchor=(1, 1), fontsize=12)
-    plt.grid(True, color=color_palette['grid_color'])
+    plt.grid(True, which='both', axis='both', color=color_palette['grid_color'])
     plt.xticks(color=color_palette['text_color'])
     plt.yticks(color=color_palette['text_color'])
-    
+    plt.minorticks_on()
+
     # Save the figure
     save_path = os.path.join(folder_path, figurename + ".pdf")
     plt.savefig(save_path, dpi=300, format="pdf")
