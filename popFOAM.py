@@ -7,9 +7,7 @@ import numpy as np
 from scipy import signal 
 from scipy import integrate
 from pyfiglet import Figlet
-from sklearn.metrics import r2_score
-from scipy.optimize import curve_fit
-from tabulate import tabulate
+
 
 caseDict = {"H1":0.20, "H2":0.35, "H3":0.5, "H4" :0.75, "H5" :1.0, "H6":1.25,
             "H7":1.50, "H8":1.75, "H9":2.0, "H10":2.25, "H11":2.50}
@@ -24,7 +22,7 @@ forces_file = "forces.dat"
 if __name__ == "__main__":
     
     text = Figlet(font='slant')
-    print(text.renderText("Let's popFOAM"))
+    print(text.renderText("popFOAM"))
 
     if not os.path.isfile(forces_path+forces_file):
         print("Forces file not found at ", forces_path)
@@ -70,22 +68,23 @@ if __name__ == "__main__":
 
         try:
             # Check for timestep consistency
-            timestep, inconsistent_steps = pop.check_time_step_consistency(time, tolerance=1e-6)
+            tolerance = 1e-5
+            timestep, inconsistent_steps = pop.check_time_step_consistency(time, tolerance=tolerance)
             
             if not inconsistent_steps:
-                print(f"\nCONSTANT TIME STEP: {timestep}s")
+                print(f"\nCONSTANT TIME STEP: {timestep} +/- {tolerance}s")
             else:
                 print("\nTime step not constant at the following indices and values:")
                 for idx, val in inconsistent_steps:
-                    print(f"Index {idx}: Time difference {val}")
+                    print(f"Index {idx}: Timestep {val}")
                 print(f"\nAvg timestep is: {timestep}s")
         except Exception as e:
             print(f"\nAn error occurred: {e}")
 
         # Full motions calculation
-        full_motion_signal = [((t / ramp) if t < ramp else 1) * motionAmp * np.sin(w * t) for t in time]
-        full_velocity_signal = [((t / ramp) if t < ramp else 1) * w * motionAmp * np.cos(w * t) for t in time]
-        full_acceleration_signal = [-((t / ramp) if t < ramp else 1) * w**2 * motionAmp * np.sin(w * t) for t in time]
+        full_motion_signal = np.array([((t / ramp) if t < ramp else 1) * motionAmp * np.sin(w * t) for t in time])
+        full_velocity_signal = np.array([((t / ramp) if t < ramp else 1) * w * motionAmp * np.cos(w * t) for t in time])
+        full_acceleration_signal = np.array([-((t / ramp) if t < ramp else 1) * w**2 * motionAmp * np.sin(w * t) for t in time])
 
         pop.makeplot(title='Motion',
                     x=time,
@@ -106,9 +105,9 @@ if __name__ == "__main__":
         max_truncate_index = np.searchsorted(time, truncMax)
         time_truncated = time[min_truncate_index:max_truncate_index]
 
-        motion_signal = [((t / ramp) if t < ramp else 1) * motionAmp * np.sin(w * t) for t in time_truncated]
-        velocity_signal = [((t / ramp) if t < ramp else 1) * w * motionAmp * np.cos(w * t) for t in time_truncated]
-        acceleration_signal = [-((t / ramp) if t < ramp else 1) * w**2 * motionAmp * np.sin(w * t) for t in time_truncated]    
+        motion_signal = np.array([((t / ramp) if t < ramp else 1) * motionAmp * np.sin(w * t) for t in time_truncated])
+        velocity_signal = np.array([((t / ramp) if t < ramp else 1) * w * motionAmp * np.cos(w * t) for t in time_truncated])
+        acceleration_signal = np.array([-((t / ramp) if t < ramp else 1) * w**2 * motionAmp * np.sin(w * t) for t in time_truncated])    
         
         # Force truncation
         forceX_truncated = np.array(forceX[min_truncate_index:max_truncate_index])
@@ -120,6 +119,8 @@ if __name__ == "__main__":
                     'Time (s)', 'Amplitude',
                     ['motion (m)', 'velocity (m/s)', 'acceleration (m/s^2)'], 
                     folder_path, 'truncated_motion')
+
+        
 
 
         ##################################################################################################################
@@ -169,6 +170,9 @@ if __name__ == "__main__":
         # remove restoring force (assuming constant floating plane area)
         forceY_truncated -= restoringCoeff * np.array(motion_signal)
 
+        # remove avg buoancy 
+        forceY_truncated -= np.average(forceY_truncated)
+
         n_periods = int(np.floor((time_truncated[-1] - time_truncated[0]) / T))
 
         # Calculate the exact time span to cover these periods
@@ -180,10 +184,70 @@ if __name__ == "__main__":
         time_truncated_n_periods = time_truncated[start_index:]
         forceY_truncated_n_periods = forceY_truncated[start_index:]
 
+
+        #-----------------------------------------------------------------------------------------------------------------
         # Smooth the force data
+        #-----------------------------------------------------------------------------------------------------------------
+
         window_length = 21  # Ensure this is appropriate for your data
         poly_order = 3
         forceY_filtered_n_periods = signal.savgol_filter(forceY_truncated_n_periods, window_length, poly_order)
+
+
+        #-----------------------------------------------------------------------------------------------------------------
+        # Calc up-zero crossings w/ smoothed force
+        #-----------------------------------------------------------------------------------------------------------------
+
+        # Align motion time to match force time range
+        aligned_motion_indices = (time_truncated >= time_truncated_n_periods[0]) & (time_truncated <= time_truncated_n_periods[-1])
+        aligned_motion_times = time_truncated[aligned_motion_indices]
+        aligned_motion_signal = motion_signal[aligned_motion_indices]
+
+        # Get upward zero-crossings for motion and force
+        # Find zero-crossings for the aligned motion
+        _, _, motion_up_times, motion_up_values = pop.find_zero_crossings(aligned_motion_signal, aligned_motion_times, crossing_type="up")
+        _, _, force_up_times, force_up_values = pop.find_zero_crossings(forceY_filtered_n_periods, time_truncated_n_periods, crossing_type="up")
+
+        # Normalize signals
+        force_normalized = forceY_filtered_n_periods / np.max(np.abs(forceY_filtered_n_periods))
+        motion_normalized = aligned_motion_signal / np.max(np.abs(aligned_motion_signal))
+
+        # Ensure matching lengths for zero-crossings
+        num_crossings = min(len(motion_up_times), len(force_up_times))
+
+        # Compute time differences (Δt)
+        time_differences = force_up_times[:num_crossings] - motion_up_times[:num_crossings]
+
+        # Calculate phase lags
+        phase_lags = w * time_differences
+
+        # Normalize phase lags to the range [0, 2π]
+        phase_lags_normalized = np.mod(phase_lags, 2 * np.pi)
+
+        # Average phase lag
+        average_phase_lag = np.mean(phase_lags_normalized)
+
+        # Print results
+        print(f"Phase Lags (radians): {phase_lags_normalized}")
+        print(f"Average Phase Lag (radians): {average_phase_lag}")
+        print(f"Average Phase Lag (degrees): {np.degrees(average_phase_lag)}")
+
+
+        # Plot with makeplot
+        pop.makeplot('Upzero Crossings', 
+            [time_truncated_n_periods, force_up_times, aligned_motion_times, motion_up_times], 
+            [force_normalized, force_up_values, motion_normalized, motion_up_values], 
+            'time', 'force', 
+            ['force', 'force up-zero cross', 'motion', 'motion up-zero cross'], 
+            folder_path, 
+            'up_zero_cross',
+            marker=['', 'x', '', 'x'], 
+            linetype=['solid', 'None', 'solid', 'None'])
+
+        #-----------------------------------------------------------------------------------------------------------------
+        # Fit pure sin to force
+        #-----------------------------------------------------------------------------------------------------------------
+        fit_sin_force, fit_sin_amplitude, fit_sin_phase = pop.fit_force_sin(time_truncated_n_periods, forceY_truncated_n_periods, w, phase_lag_guess=average_phase_lag)
 
 
         ##################################################################################################################
@@ -198,6 +262,8 @@ if __name__ == "__main__":
         # In-phase (cosine) and out-of-phase (sine) integration    
         a1 = (2 / (n_periods * T)) * integrate.simpson(y=forceY_filtered_n_periods * np.sin(w * time_truncated_n_periods), x=time_truncated_n_periods)
         b1 = (2 / (n_periods * T)) * integrate.simpson(y=forceY_filtered_n_periods * np.cos(w * time_truncated_n_periods), x=time_truncated_n_periods)
+
+        print(a1, b1)
 
         # Calculate the amplitude and phase of the force
         force_amplitude_fourier = np.sqrt(a1**2 + b1**2)
@@ -245,7 +311,7 @@ if __name__ == "__main__":
         print("\nCalculating hydrodynamic coefficients using force amplitude \nand phase")               
         print("------------------------------------------------\n") 
 
-        coeffs = pop.UzunogluMethod(force_phase_fourier, force_amplitude_fourier, motionAmp, w, mass)
+        coeffs = pop.UzunogluMethod(average_phase_lag, np.average([np.max(forceY_filtered_n_periods), np.abs(np.min(forceY_filtered_n_periods))]), motionAmp, w, mass)
         a = coeffs.addedmass
         b = coeffs.damping
         print(f"NORMALIZED ADDED MASS: {4*a/(rho*np.pi*R**2)}")
@@ -269,35 +335,14 @@ if __name__ == "__main__":
                     figurename='periodtruncatedforces',
                     linetype=['solid', 'solid'],
                     alpha=[0.8, 1])
-            
-        def sin_func(t, amplitude, phase):
-            return amplitude * np.sin((t * w) + phase)
-        
-        # Fit cos function to force data
-        constants = curve_fit(sin_func, time_truncated_n_periods, forceY_truncated_n_periods)
-        force_amplitude_sin_fit = abs(constants[0][0])  # Maximum force amplitude given by cos curve fit
-        force_phase_sin_fit = constants[0][1]  # Force phase given by cos curve fit
 
-        # Ensure force_phase_fourier is in the correct range (0 to π/2)
-        force_phase_sin_fit = np.arctan2(np.sin(force_phase_sin_fit), np.cos(force_phase_sin_fit))
 
-        if force_phase_sin_fit > np.pi/2:
-            force_phase_sin_fit = np.pi - force_phase_sin_fit
-
-        predictedYPressureF = sin_func(time_truncated_n_periods, force_amplitude_sin_fit, force_phase_sin_fit)
-
-        rr = r2_score(forceY_truncated_n_periods, predictedYPressureF)  # R² value for force fit
-
-        print(f"\nFORCE AMPLITUDE: {round(force_amplitude_sin_fit)} N",
-            f"\nFORCE/MOTION PHASE: {round(180*force_phase_sin_fit/np.pi, 2)}º",
-            f"\nR² score is: {rr}")
-        
-        old = pop.UzunogluMethod(force_phase_sin_fit, force_amplitude_sin_fit, motionAmp, w, mass)
+        old = pop.UzunogluMethod(fit_sin_phase, fit_sin_amplitude, motionAmp, w, mass)
         print(4*old.addedmass/(rho*np.pi*R**2), 4*old.damping/(rho*np.pi*R**2*w))
 
         pop.makeplot(title='Vertical force on the cylinder',
                     x=[time_truncated, time_truncated_n_periods, time_truncated_n_periods, time_truncated_n_periods], 
-                    y=[forceY_truncated-a0, forceY_filtered_n_periods-a0, force_reconstructed_n_periods, predictedYPressureF], 
+                    y=[forceY_truncated-a0, forceY_filtered_n_periods-a0, force_reconstructed_n_periods, fit_sin_force], 
                     xlabel='Time (s)', 
                     ylabel='Force (N)',
                     label=['Unfiltered force (N)','Smoothed force (N)','Fourier reconstructed force (N)', 'Predicted force from curve fit (N)'], 
@@ -312,7 +357,7 @@ if __name__ == "__main__":
         #################################################################################################################
 
         jorge1 = pop.JorgeMethod(accelAmp, velAmp, motionAmp, force_amplitude_fourier, average_amplitude, w, rho) 
-        jorge2 = pop.JorgeMethod(accelAmp, velAmp, motionAmp, force_amplitude_sin_fit, average_amplitude, w, rho)        
+        jorge2 = pop.JorgeMethod(accelAmp, velAmp, motionAmp, fit_sin_amplitude, average_amplitude, w, rho)        
 
         print(round(4*jorge1.damping/(rho*np.pi*R**2*w), 4), round(4*jorge1.addedmass/(rho*np.pi*R**2),4))
         print(round(4*jorge2.damping/(rho*np.pi*R**2*w), 4), round(4*jorge2.addedmass/(rho*np.pi*R**2),4))

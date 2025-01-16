@@ -41,3 +41,5 @@ plt.show()
 
 print(addedMass, damping)
 
+# added mass: 0.5782624 -> w'= 1
+# damping: 0.40510517 -w'= 1
