@@ -12,30 +12,16 @@ from scipy import integrate
 from scipy.fftpack import fft, fftfreq
 import math
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
 
 class JorgeMethod:
     """Class to handle calculation of damping and added mass based on input parameters."""
 
-    def __init__(
-        self,
-        acceleration: float,
-        velocity: float,
-        motion: float,
-        force: float,
-        waveamplitude: float,
-        w: float,
-        rho: float
-    ) -> None:
+    def __init__(self, acceleration, velocity, motion, force, waveamplitude, w, rho):
         """
-        Initializes the JorgeMethod with the given parameters.
-
-        :param acceleration: Motion acceleration
-        :param velocity: Motion velocity
-        :param motion: Motion amplitude
-        :param force: Force acting on the object
-        :param waveamplitude: Wave amplitude
-        :param w: Frequency component
-        :param rho: Density
+        Initializes JorgeMethod with the given parameters.
         """
         self.motionacceleration = acceleration
         self.motionvelocity = velocity
@@ -45,96 +31,44 @@ class JorgeMethod:
         self.w = w
         self.rho = rho
 
-        # Calculates damping and assigns as instance attribute:
+        # Calculates damping
         g = 9.81
-        self.damping = (
-            rho * g**2 / w**3
-            * (waveamplitude / motion)**2
-        )
+        self.damping = rho * g**2 / w**3 * (waveamplitude / motion)**2
 
-        # Calculates added mass and assigns as instance attribute:
-        self.addedmass = (
-            force - self.damping * velocity
-        ) / acceleration
+        # Calculates added mass
+        self.addedmass = (force - self.damping * velocity) / acceleration
+
+        logger.info(f"Initialized JorgeMethod with damping: {self.damping}, added mass: {self.addedmass}")
 
 
 class UzunogluMethod:
-    def __init__(
-        self,
-        phaselag: float,
-        hydrodynamicforce: float,
-        motionamplitude: float,
-        w: float,
-        mass: float
-    ) -> None:
-        """
-        Initialize UzunogluMethod with given parameters to compute damping and added mass.
+    """Class to calculate damping and added mass using Uzunoglu's method."""
 
-        Args:
-            phaselag (float): Phase difference (in radians).
-            hydrodynamicforce (float): Hydrodynamic force magnitude.
-            motionamplitude (float): Amplitude of oscillatory motion.
-            w (float): Angular frequency.
-            mass (float): Structural mass.
-        """
+    def __init__(self, phaselag, hydrodynamicforce, motionamplitude, w, mass):
         self.phaselag = phaselag
         self.hydrodynamicforce = hydrodynamicforce
         self.motionamplitude = motionamplitude
         self.w = w
         self.mass = mass
 
-        # Calculates damping and assigns as instance attribute
-        self.damping = (
-            self.hydrodynamicforce
-            * np.sin(self.phaselag)
-            / (self.motionamplitude * self.w)
-        )
+        # Compute damping and added mass
+        self.damping = (hydrodynamicforce * np.sin(phaselag)) / (motionamplitude * w)
+        self.addedmass = (-hydrodynamicforce * np.cos(phaselag)) / (motionamplitude * w**2) - mass
 
-        # Calculates added mass and assigns as instance attribute
-        self.addedmass = (
-            -self.hydrodynamicforce
-            * np.cos(self.phaselag)
-            / (self.motionamplitude * self.w**2)
-            - self.mass
-        )
+        logger.info(f"UzunogluMethod - Damping: {self.damping}, Added mass: {self.addedmass}")
 
 
 class LinearCoefficients:
-    def __init__(
-        self,
-        timestep: float,
-        time: np.ndarray,
-        force: np.ndarray,
-        motionAmp: float,
-        omega: float,
-        half_breadth: float,
-        folder_path: str,
-        title: str,
-        rho: float = 998.2
-    ) -> None:
-        """
-        Initialize LinearCoefficients to perform FFT on force data and calculate
-        damping and added mass parameters.
+    """Class to compute FFT and extract damping and added mass."""
 
-        Args:
-            timestep (float): Sampling time step.
-            time (np.ndarray): Time array.
-            force (np.ndarray): Force array in time domain.
-            motionAmp (float): Motion amplitude.
-            omega (float): Angular frequency.
-            half_breadth (float): Half breadth of the body.
-            folder_path (str): Folder path to save plots.
-            title (str): Title for the figures.
-            rho (float, optional): Fluid density. Defaults to 998.2.
-        """
-        # By default only use the second half of the data
+    def __init__(self, timestep, time, force, motionAmp, omega, half_breadth, folder_path, title, rho=998.2):
         self.time = time
         self.time_step = timestep
         self.force = force
         self.omega = omega
         self.motionAmp = motionAmp
-        self.velAmp = self.omega * self.motionAmp
-        self.acelAmp = self.omega**2 * self.motionAmp
+        self.velAmp = omega * motionAmp
+        self.acelAmp = omega**2 * motionAmp
         self.half_breadth = half_breadth
         self.fig_title = title
         self.rho = rho
@@ -144,63 +78,31 @@ class LinearCoefficients:
         fft_result = fft(self.force)
         frequencies = fftfreq(N, d=self.time_step)
 
-        # Calculate the magnitude spectrum
-        magnitude = np.abs(fft_result) / N  # Normalized magnitude
-
-        # Select positive frequencies (since the FFT is symmetric)
+        # Extract relevant frequency components
+        magnitude = np.abs(fft_result) / N
         positive_frequencies = frequencies > 0
         frequencies = frequencies[positive_frequencies]
         magnitude = magnitude[positive_frequencies]
 
-        # Find the index of the frequency closest to the excitation frequency
+        # Identify fundamental frequency
         self.fundamental_index = np.argmax(magnitude)
         self.fundamental_frequency = frequencies[self.fundamental_index]
 
-        # Extract the real and imaginary parts at the fundamental frequency
+        # Extract real and imaginary parts
         self.real_part = np.real(fft_result[self.fundamental_index])
         self.imaginary_part = np.imag(fft_result[self.fundamental_index])
         self.magnitude = np.abs(fft_result[self.fundamental_index])
         self.phase = np.angle(fft_result[self.fundamental_index])
 
-        # Calculate damping and added mass
+        # Compute damping and added mass
         self.damping = self.real_part / (self.omega * self.motionAmp)
-        self.norm_damping = (
-            4 * self.damping / (np.pi * self.rho * self.half_breadth**2 * self.omega)
-        )
+        self.norm_damping = 4 * self.damping / (np.pi * self.rho * self.half_breadth**2 * self.omega)
         self.added_mass = -self.imaginary_part / (self.omega**2 * self.motionAmp)
-        self.norm_added_mass = (
-            4 * self.added_mass / (np.pi * self.rho * self.half_breadth**2)
-        )
+        self.norm_added_mass = 4 * self.added_mass / (np.pi * self.rho * self.half_breadth**2)
 
-        # Print results
-        print(
-            "\n#######################################################################################"
-            f"\npopTools.py {type(self).__name__} class output\n"
-            "------------------------------------------------\n"
-            f"\nFUNDAMENTAL FREQ: {round(self.fundamental_frequency, 6)} Hz"
-            f"\nREAL PART: {round(self.real_part)}"
-            f"\nIMAG PART: {round(self.imaginary_part)}"
-            f"\nDAMPING: {round(self.damping)} N.s/m"
-            f"\nADDED MASS: {round(self.added_mass)} N.s²/m"
-            f"\nNORMALIZED DAMPING: {round(self.norm_damping, 4)}"
-            f"\nNORMALIZED ADDED MASS: {round(self.norm_added_mass, 4)}"
-            "\n------------------------------------------------"
-            "\n                  end output                    "
-            "\n------------------------------------------------\n"
-        )
+        # Log results
+        logger.info(f"LinearCoefficients computed: Freq={self.fundamental_frequency}, Damping={self.damping}, Added Mass={self.added_mass}")
 
-        # Plot forces
-        makeplot(
-            title='Frequency Spectrum of Force Data',
-            x=[frequencies[frequencies < 1]],
-            y=[magnitude[frequencies < 1]],
-            xlabel='Frequency (Hz)',
-            ylabel='Magnitude',
-            label=[],
-            marker='o',
-            folder_path=folder_path,
-            figurename=f'{self.fig_title}spectrum'
-        )
 
 
 class RadiatedWave:
@@ -581,7 +483,7 @@ def check_time_step_consistency(time_array, tolerance=1e-6):
 
     return avg_delta, inconsistent_steps
 
-def fit_force_sin(time, force, w, phase_lag_guess=0, max_iterations=100, tolerance=1e-2):
+def fit_force_sin(time, force, w, phase_lag_guess=0, max_iterations=100, tolerance=1e-6):
     """
     Iteratively fits a sinusoidal function to force data and extracts amplitude & phase 
     until convergence is achieved.
@@ -608,7 +510,11 @@ def fit_force_sin(time, force, w, phase_lag_guess=0, max_iterations=100, toleran
 
     for iteration in range(max_iterations):
         # Fit sinusoidal function to force data
-        constants, _ = curve_fit(sin_func, time, force, p0=initial_guess)
+        try:
+            constants, _ = curve_fit(sin_func, time, force, p0=initial_guess)
+        except RuntimeError as e:
+            logger.warning(f"Curve fit did not converge: {e}")
+            return None, None, None
 
         # Extract fitted parameters
         fit_amplitude = np.abs(constants[0])  # Ensure amplitude is positive
@@ -632,12 +538,9 @@ def fit_force_sin(time, force, w, phase_lag_guess=0, max_iterations=100, toleran
     # Compute R² score for fit accuracy
     r_squared = r2_score(force, fit_force)
 
-    # Logging results
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
-    logger.info(f"\nConverged in {iteration + 1} iterations."
+    logger.info(f"Converged in {iteration + 1} iterations."
                 f"\nFORCE AMPLITUDE: {round(fit_amplitude, 2)} N"
                 f"\nFORCE/MOTION PHASE: {round(180 * fit_phase / np.pi, 2)}º"
                 f"\nR² score: {r_squared:.4f}")
 
-    return fit_force, fit_amplitude, fit_phase
+    return fit_force, fit_amplitude, fit_phase, r_squared

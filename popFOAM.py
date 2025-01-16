@@ -31,12 +31,8 @@ if __name__ == "__main__":
         sys.exit()
     else:
         print("\n\nCASE: " + grid)
-        
-        ##################################################################################################################
-        # Initialization
-        ##################################################################################################################
-
-        # Var init
+        #-----------------------------------------------------------------------------------------------------------------               
+        #region Initialization
         time = np.array([])
         forceX = np.array([])
         forceY = np.array([])
@@ -65,7 +61,9 @@ if __name__ == "__main__":
         Awp = 2 * R * Z                     # waterplane area
         restoringCoeff = Awp * rho * g      # restoring coefficient
         twoL = 2 * Ldeep                    # 2 * length of deep water wave 
-
+        #endregion
+        #-----------------------------------------------------------------------------------------------------------------               
+        #region Time treatment
         try:
             # Check for timestep consistency
             tolerance = 1e-5
@@ -79,9 +77,14 @@ if __name__ == "__main__":
                     print(f"Index {idx}: Timestep {val}")
                 print(f"\nAvg timestep is: {timestep}s")
         except Exception as e:
-            print(f"\nAn error occurred: {e}")
+            print(f"\nAn error occurred: {e}")        
 
-        # Full motions calculation
+        min_truncate_index = np.searchsorted(time, truncMin)
+        max_truncate_index = np.searchsorted(time, truncMax)
+        time_truncated = time[min_truncate_index:max_truncate_index]
+        #endregion
+        #-----------------------------------------------------------------------------------------------------------------        
+        #region Motion treatment
         full_motion_signal = np.array([((t / ramp) if t < ramp else 1) * motionAmp * np.sin(w * t) for t in time])
         full_velocity_signal = np.array([((t / ramp) if t < ramp else 1) * w * motionAmp * np.cos(w * t) for t in time])
         full_acceleration_signal = np.array([-((t / ramp) if t < ramp else 1) * w**2 * motionAmp * np.sin(w * t) for t in time])
@@ -95,38 +98,20 @@ if __name__ == "__main__":
                     folder_path=folder_path, 
                     figurename='motion')
 
-
-        ##################################################################################################################
-        # Time, motion and force truncation
-        ##################################################################################################################
-
-        # Time truncation    
-        min_truncate_index = np.searchsorted(time, truncMin)
-        max_truncate_index = np.searchsorted(time, truncMax)
-        time_truncated = time[min_truncate_index:max_truncate_index]
-
+        # Motion truncation    
         motion_signal = np.array([((t / ramp) if t < ramp else 1) * motionAmp * np.sin(w * t) for t in time_truncated])
         velocity_signal = np.array([((t / ramp) if t < ramp else 1) * w * motionAmp * np.cos(w * t) for t in time_truncated])
         acceleration_signal = np.array([-((t / ramp) if t < ramp else 1) * w**2 * motionAmp * np.sin(w * t) for t in time_truncated])    
         
-        # Force truncation
-        forceX_truncated = np.array(forceX[min_truncate_index:max_truncate_index])
-        forceY_truncated = np.array(forceY[min_truncate_index:max_truncate_index]) 
-
         # Plot motions
         pop.makeplot('Truncated Motion',
                     time_truncated, [motion_signal, velocity_signal, acceleration_signal], 
                     'Time (s)', 'Amplitude',
                     ['motion (m)', 'velocity (m/s)', 'acceleration (m/s^2)'], 
                     folder_path, 'truncated_motion')
-
-        
-
-
-        ##################################################################################################################
-        # Freesurface calculation
-        ##################################################################################################################
-
+        #endregion
+        #-----------------------------------------------------------------------------------------------------------------        
+        #region Freesurface treatment
         location = 1
         radiated_wave = pop.RadiatedWave(waveperiod=T, mainfolderpath=folder_path)
         radiated_wave.freesurfaceelevation(probe=location, relBottom=False)
@@ -161,11 +146,13 @@ if __name__ == "__main__":
                     'wave',
                     marker=['', 'o'],
                     linetype=['solid','None'])
+        #endregion
+        #-----------------------------------------------------------------------------------------------------------------       
+        #region Force treatment
 
-
-        ##################################################################################################################
-        # Force treatment
-        ##################################################################################################################
+        # Force truncation
+        forceX_truncated = np.array(forceX[min_truncate_index:max_truncate_index])
+        forceY_truncated = np.array(forceY[min_truncate_index:max_truncate_index]) 
         
         # remove restoring force (assuming constant floating plane area)
         forceY_truncated -= restoringCoeff * np.array(motion_signal)
@@ -183,19 +170,18 @@ if __name__ == "__main__":
         # Truncate data based on a number N periods
         time_truncated_n_periods = time_truncated[start_index:]
         forceY_truncated_n_periods = forceY_truncated[start_index:]
-
-
+        #endregion
         #-----------------------------------------------------------------------------------------------------------------
-        # Smooth the force data
+        #region Smooth the force data
         #-----------------------------------------------------------------------------------------------------------------
 
         window_length = 21  # Ensure this is appropriate for your data
         poly_order = 3
         forceY_filtered_n_periods = signal.savgol_filter(forceY_truncated_n_periods, window_length, poly_order)
 
-
+        #endregion
         #-----------------------------------------------------------------------------------------------------------------
-        # Calc up-zero crossings w/ smoothed force
+        #region Calc up-zero crossings w/ smoothed force
         #-----------------------------------------------------------------------------------------------------------------
 
         # Align motion time to match force time range
@@ -243,18 +229,18 @@ if __name__ == "__main__":
             'up_zero_cross',
             marker=['', 'x', '', 'x'], 
             linetype=['solid', 'None', 'solid', 'None'])
-
+        #endregion
         #-----------------------------------------------------------------------------------------------------------------
-        # Fit pure sin to force
+        #region Fit pure sin to force
         #-----------------------------------------------------------------------------------------------------------------
-        fit_sin_force, fit_sin_amplitude, fit_sin_phase = pop.fit_force_sin(time_truncated_n_periods, forceY_truncated_n_periods, w, phase_lag_guess=average_phase_lag)
-
-
-        ##################################################################################################################
-        # Using time-domain integration (Fourier series coefficients) to calculate force amplitude and phase lag
-        ##################################################################################################################
-        print("\n#######################################################################################")
-        print("\nUsing time-domain integration (Fourier series coefficients) to \ncalculate force amplitude and phase lag")               
+        fit_sin_force, fit_sin_amplitude, fit_sin_phase, _ = pop.fit_force_sin(time_truncated_n_periods, 
+                                                                               forceY_truncated_n_periods, w, 
+                                                                               phase_lag_guess=average_phase_lag)
+        #endregion
+        #-----------------------------------------------------------------------------------------------------------------        
+        #region Time-domain integration (Fourier series coefficients) to calculate force amplitude and phase lag
+        print("\n------------------------------------------------")
+        print("Time-domain integration (Fourier series)")               
         print("------------------------------------------------\n") 
 
         a0 = (1 / (n_periods * T)) * integrate.simpson(y=forceY_filtered_n_periods, x=time_truncated_n_periods) # mean force (buoyancy)
@@ -263,27 +249,17 @@ if __name__ == "__main__":
         a1 = (2 / (n_periods * T)) * integrate.simpson(y=forceY_filtered_n_periods * np.sin(w * time_truncated_n_periods), x=time_truncated_n_periods)
         b1 = (2 / (n_periods * T)) * integrate.simpson(y=forceY_filtered_n_periods * np.cos(w * time_truncated_n_periods), x=time_truncated_n_periods)
 
-        print(a1, b1)
-
         # Calculate the amplitude and phase of the force
         force_amplitude_fourier = np.sqrt(a1**2 + b1**2)
         force_phase_fourier = np.arctan2(b1, a1)
 
-        print(force_phase_fourier)
-
-        # Ensure force_phase_fourier is in the correct range (0 to π/2)
-        if force_phase_fourier > np.pi/2:
-            force_phase_fourier = np.pi - force_phase_fourier
-
-        print(force_phase_fourier)
-
         print(f"# OF CYCLES: {n_periods}",
             f"\nFORCE AMPLITUDE: {round(force_amplitude_fourier)} N",
             f"\nFORCE/MOTION PHASE: {round(180*force_phase_fourier/np.pi, 2)}º")
+        #endregion
+        #-----------------------------------------------------------------------------------------------------------------               
+        #region Calculate the hydrodynamic coefficients using reconstructed force
         
-        ##################################################################################################################
-        # Calculate the hydrodynamic coefficients using reconstructed force
-        ##################################################################################################################
         print("\n#######################################################################################")
         print("\nCalculating hydrodynamic coefficients from force Fourier series \ncoefficients")               
         print("------------------------------------------------\n") 
@@ -302,11 +278,10 @@ if __name__ == "__main__":
         #added mass and damping using 
         print(f"NORMALIZED ADDED MASS: {round(4*added_mass/(rho*np.pi*R**2),4)}")
         print(f"NORMALIZED DAMPING: {round(4*damping/(rho*np.pi*R**2*w), 4)}")
-
-
-        ##################################################################################################################
-        # Calculate the hydrodynamic coefficients using Uzunuglo method
-        ##################################################################################################################
+        #endregion
+        #-----------------------------------------------------------------------------------------------------------------        
+        #region Calculate the hydrodynamic coefficients using Uzunuglo method
+        
         print("\n#######################################################################################")
         print("\nCalculating hydrodynamic coefficients using force amplitude \nand phase")               
         print("------------------------------------------------\n") 
@@ -316,10 +291,9 @@ if __name__ == "__main__":
         b = coeffs.damping
         print(f"NORMALIZED ADDED MASS: {4*a/(rho*np.pi*R**2)}")
         print(f"NORMALIZED DAMPING: {4*b/(rho*np.pi*R**2*w)}")       
-
-        ##################################################################################################################
-        # Calculate the hydrodynamic coefficients using radiated wave - VUGTS (wave damping)
-        ##################################################################################################################
+        #endregion
+        #-----------------------------------------------------------------------------------------------------------------        
+        #region Calculate the hydrodynamic coefficients using radiated wave - VUGTS (wave damping)
 
         pop.LinearCoefficients(timestep, time_truncated, forceY_truncated, motionAmp, w, draft, folder_path, "original_force_", rho)
         pop.LinearCoefficients(timestep, time_truncated_n_periods, forceY_filtered_n_periods, motionAmp, w, draft, folder_path, "filtered_force_", rho)    
@@ -350,14 +324,14 @@ if __name__ == "__main__":
                     figurename='peakforces',
                     linetype=['solid', 'solid', '--', 'solid'],
                     alpha=[0.8, 1, 1, 1])
-
-
-        ##################################################################################################################
-        # Print results
-        #################################################################################################################
+        #endregion
+        #-----------------------------------------------------------------------------------------------------------------        
+        #region Print results
 
         jorge1 = pop.JorgeMethod(accelAmp, velAmp, motionAmp, force_amplitude_fourier, average_amplitude, w, rho) 
         jorge2 = pop.JorgeMethod(accelAmp, velAmp, motionAmp, fit_sin_amplitude, average_amplitude, w, rho)        
 
         print(round(4*jorge1.damping/(rho*np.pi*R**2*w), 4), round(4*jorge1.addedmass/(rho*np.pi*R**2),4))
         print(round(4*jorge2.damping/(rho*np.pi*R**2*w), 4), round(4*jorge2.addedmass/(rho*np.pi*R**2),4))
+        #endregion
+        #-----------------------------------------------------------------------------------------------------------------        
