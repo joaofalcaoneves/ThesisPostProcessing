@@ -24,7 +24,7 @@ class JorgeMethod:
         """
         Initializes JorgeMethod with the given parameters.
         """
-        # Calculates damping
+        # Calculates wave damping
         g = 9.81
         self.damping = rho * g**2 / w**3 * (wave_amplitude / motion_amplitude)**2
 

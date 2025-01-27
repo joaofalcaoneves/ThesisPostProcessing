@@ -45,17 +45,17 @@ if __name__ == "__main__":
         g = 9.81                            # acceleration of gravity
         rho = 998.2                         # water density -> be sure to put same as in the simulation!
         draft = 5                           # draft
-        motion_amplitude = 0.5                     # motion amplitude
-        omega_prime = caseDict[case]             # normalized radial frequency
-        omega = np.sqrt(omega_prime * g / draft)     # radial frequency    
-        velocity_amplitude = motion_amplitude * omega              # velocity amplitude
-        acceleration_amplitude = velocity_amplitude * omega               # acceleration amplitude
-        T = 2.0 * math.pi / omega               # period
+        motion_amplitude = 0.5              # motion amplitude
+        omega_prime = caseDict[case]        # normalized radial frequency
+        omega = np.sqrt(omega_prime * g / draft)            # radial frequency    
+        velocity_amplitude = motion_amplitude * omega       # velocity amplitude
+        acceleration_amplitude = velocity_amplitude * omega # acceleration amplitude
+        T = 2.0 * math.pi / omega           # period
         freq = 1 / T                        # frequency    
         Ldeep = g / (2 * math.pi) * (T**2)  # length of wave in deep water
         truncMax = np.max(time)             # max time to analyze
-        truncMin = 2 * T                    # min time to analyze
-        ramp = 3 * T                        # transient time
+        truncMin = 0.5 * T                  # min time to analyze
+        ramp = 0 * T                        # transient time
         R = draft                           # radius of the cylinder = draft
         Z = 1                               # 2D domain depth in Z    
         Awp = 2 * R * Z                     # waterplane area
@@ -121,7 +121,7 @@ if __name__ == "__main__":
 
         #-----------------------------------------------------------------------------------------------------------------       
         #region Freesurface treatment
-        location = 1
+        location = 0
         radiated_wave = pop.RadiatedWave(waveperiod=T, mainfolderpath=folder_path)
         radiated_wave.freesurfaceelevation(probe=location, relBottom=False)
         wave_history = radiated_wave.wave_history
@@ -230,9 +230,9 @@ if __name__ == "__main__":
         average_phase_shift = np.mean(phase_shifts)
 
         # Print results
-        #print(f"Phase Lags (radians): {phase_shifts_normalized}")
-        print(f"\nAverage Phase Lag (radians): {average_phase_shift}")
-        print(f"Average Phase Lag (degrees): {np.degrees(average_phase_shift)}\n")
+        # print(f"Phase Lags (radians): {phase_shifts_normalized}")
+        print(f"\nAverage Phase shift (radians): {average_phase_shift}")
+        print(f"Average Phase shift (degrees): {np.degrees(average_phase_shift)}\n")
 
 
         # Plot with makeplot
@@ -256,36 +256,49 @@ if __name__ == "__main__":
         print("Fit sine function to force history")               
         print("-------------------------------------------------")        
         
-        fit_sin_force, force_amplitude_fit, force_phase_fit, _ = pop.fit_force_sin(time_truncated_n_periods, 
+        force_history_fit_XX_symetric, force_amplitude_fit, force_phase_fit, _ = pop.fit_force_sin(time_truncated_n_periods, 
                                                                                forceY_truncated_n_periods_XX_symetric,
                                                                                omega, 
                                                                                phase_shift_guess=average_phase_shift
                                                                             )
         
-        #force_amplitude_fourier*np.sin(w*time_truncated_n_periods + force_phase_fourier)
-        offshore_fit = pop.OffshoreHydromechanicsMethod(force_phase_fit, force_amplitude_fit + np.average(forceY_truncated_n_periods), motion_amplitude, omega, restoringCoeff, mass)
+        offshore_fit = pop.OffshoreHydromechanicsMethod(force_phase_fit, force_amplitude_fit, motion_amplitude, omega, restoringCoeff, mass)
         added_mass_fit = offshore_fit.addedmass
         damping_fit = offshore_fit.damping
 
+        print(f"\nForce amplitude: {round(force_amplitude_fit)} N",
+            f"\nPhase shift: {round(180*(force_phase_fit)/np.pi, 4)}º")
         print(
             "\nCalculating hydrodynamic coeffs from Offshore Hydromechanics:",
-            f"\nAdded mass coeff, u: {round(added_mass_fit)} N.s²/m",
-            f"\nDamping coeff, v: {round(damping_fit)} N.s/m",
-            f"\nRestoring coeff, k: {round(restoringCoeff)} N/m", 
-            f"\nNormalized added mass,u`: {round(pop.normalize(added_mass_fit, draft, rho),4)}",
-            f"\nNormalized dammping, v`: {round(pop.normalize(damping_fit, draft, rho, omega, damping=True), 4)}"
+            f"\n\n    Added mass coeff, u: {round(added_mass_fit)} N.s²/m",
+            f"\n    Damping coeff, v: {round(damping_fit)} N.s/m",
+            f"\n    Restoring coeff, k: {round(restoringCoeff)} N/m", 
+            f"\n    Normalized added mass,u`: {round(pop.normalize(added_mass_fit, draft, rho),4)}",
+            f"\n    Normalized dammping, v`: {round(pop.normalize(damping_fit, draft, rho, omega, damping=True), 4)}"
         )
 
-        sin_fit = pop.UzunogluMethod(force_phase_fit, force_amplitude_fit, motion_amplitude, omega, mass)
-        added_mass_uzunoglu_fit = sin_fit.addedmass
-        damping_uzunoglu_fit = sin_fit.damping    
+        uzunoglu_fit = pop.UzunogluMethod(force_phase_fit, force_amplitude_fit, motion_amplitude, omega, mass)
+        added_mass_uzunoglu_fit = uzunoglu_fit.addedmass
+        damping_uzunoglu_fit = uzunoglu_fit.damping    
         print(
             "\nCalculated hydrodynamic coeff using Uzunoglu method:",
-            f"\nAdded mass coeff, u: {round(added_mass_uzunoglu_fit)} N.s²/m",
-            f"\nDamping coeff, v: {round(damping_uzunoglu_fit)} N.s/m",
-            f"\nNormalized added mass,u`: {round(pop.normalize(added_mass_uzunoglu_fit, draft, rho),4)}",
-            f"\nNormalized dammping, v`: {round(pop.normalize(damping_uzunoglu_fit, draft, rho, omega, damping=True), 4)}"
+            f"\n\n    Added mass coeff, u: {round(added_mass_uzunoglu_fit)} N.s²/m",
+            f"\n    Damping coeff, v: {round(damping_uzunoglu_fit)} N.s/m",
+            f"\n    Normalized added mass,u`: {round(pop.normalize(added_mass_uzunoglu_fit, draft, rho),4)}",
+            f"\n    Normalized dammping, v`: {round(pop.normalize(damping_uzunoglu_fit, draft, rho, omega, damping=True), 4)}"
         )            
+
+        jorge_fit = pop.JorgeMethod(acceleration_amplitude, velocity_amplitude, motion_amplitude, force_amplitude_fit, average_wave_amplitude, omega, rho) 
+        added_mass_jorge_fit = jorge_fit.addedmass
+        damping_jorge_fit = jorge_fit.damping
+
+        print(
+            "\nCalculating hydrodynamic coeff using Jorge method:",
+            f"\n\n    Added mass coeff, u: {round(added_mass_jorge_fit)} N.s²/m",
+            f"\n    Damping coeff, v: {round(damping_jorge_fit)} N.s/m",
+            f"\n    Normalized added mass,u`: {round(pop.normalize(added_mass_jorge_fit, draft, rho),4)}",
+            f"\n    Normalized dammping, v`: {round(pop.normalize(damping_jorge_fit, draft, rho, omega, damping=True), 4)}"
+        )
 
         #endregion
         #-----------------------------------------------------------------------------------------------------------------
@@ -307,9 +320,9 @@ if __name__ == "__main__":
         force_amplitude_fourier = np.sqrt(a1**2 + b1**2)
         force_phase_fourier = np.arctan2(b1, a1)  # Calc and normalize phase to [-π, π]
 
-        print(f"# of cycles: {n_periods}",
+        print(f"\n# of cycles: {n_periods}",
             f"\nForce amplitude: {round(force_amplitude_fourier)} N",
-            f"\nPhase shift: {round(180*force_phase_fourier/np.pi, 2)}º")
+            f"\nPhase shift: {round(180*(force_phase_fourier)/np.pi, 4)}º")
         #endregion
         #-----------------------------------------------------------------------------------------------------------------
 
@@ -320,29 +333,29 @@ if __name__ == "__main__":
         # Reconstruct the force using the calculated components
         force_reconstructed_n_periods = a1 * np.cos(omega * time_truncated_n_periods) + b1 * np.sin(omega * time_truncated_n_periods) 
 
-        offshore_fourier = pop.OffshoreHydromechanicsMethod(force_phase_fourier, force_amplitude_fourier + np.average(forceY_truncated_n_periods), motion_amplitude, omega, restoringCoeff, mass)
+        offshore_fourier = pop.OffshoreHydromechanicsMethod(force_phase_fourier, force_amplitude_fourier, motion_amplitude, omega, restoringCoeff, mass)
         added_mass_fourier = offshore_fourier.addedmass
         damping_fourier = offshore_fourier.damping
 
         print(
             "\nCalculating hydrodynamic coeffs from Offshore Hydromechanics:",
-            f"\nAdded mass coeff, u: {round(added_mass_fourier)} N.s²/m",
-            f"\nDamping coeff, v: {round(damping_fourier)} N.s/m",
-            f"\nRestoring coeff, k: {round(restoringCoeff)} N/m", 
-            f"\nNormalized added mass,u`: {round(pop.normalize(added_mass_fourier, draft, rho),4)}",
-            f"\nNormalized dammping, v`: {round(pop.normalize(damping_fourier, draft, rho, omega, damping=True), 4)}"
+            f"\n\n    Added mass coeff, u: {round(added_mass_fourier)} N.s²/m",
+            f"\n    Damping coeff, v: {round(damping_fourier)} N.s/m",
+            f"\n    Restoring coeff, k: {round(restoringCoeff)} N/m", 
+            f"\n    Normalized added mass,u`: {round(pop.normalize(added_mass_fourier, draft, rho),4)}",
+            f"\n    Normalized dammping, v`: {round(pop.normalize(damping_fourier, draft, rho, omega, damping=True), 4)}"
         )
 
-        uzunoglu_fourier = pop.UzunogluMethod(np.pi - force_phase_fourier, force_amplitude_fourier, motion_amplitude, omega, mass)
+        uzunoglu_fourier = pop.UzunogluMethod(force_phase_fourier, force_amplitude_fourier, motion_amplitude, omega, mass)
         added_mass_uzunoglu_fourier = uzunoglu_fourier.addedmass
         damping_uzunoglu_fourier = uzunoglu_fourier.damping
 
         print(
             "\nCalculating hydrodynamic coeff using Uzunoglu method:",
-            f"\nAdded mass coeff, u: {round(added_mass_uzunoglu_fourier)} N.s²/m",
-            f"\nDamping coeff, v: {round(damping_uzunoglu_fourier)} N.s/m",
-            f"\nNormalized added mass,u`: {round(pop.normalize(added_mass_uzunoglu_fourier, draft, rho),4)}",
-            f"\nNormalized dammping, v`: {round(pop.normalize(damping_uzunoglu_fourier, draft, rho, omega, damping=True), 4)}"
+            f"\n\n    Added mass coeff, u: {round(added_mass_uzunoglu_fourier)} N.s²/m",
+            f"\n    Damping coeff, v: {round(damping_uzunoglu_fourier)} N.s/m",
+            f"\n    Normalized added mass,u`: {round(pop.normalize(added_mass_uzunoglu_fourier, draft, rho),4)}",
+            f"\n    Normalized dammping, v`: {round(pop.normalize(damping_uzunoglu_fourier, draft, rho, omega, damping=True), 4)}"
         )
 
         jorge_fourier = pop.JorgeMethod(acceleration_amplitude, velocity_amplitude, motion_amplitude, force_amplitude_fourier, average_wave_amplitude, omega, rho) 
@@ -351,10 +364,10 @@ if __name__ == "__main__":
 
         print(
             "\nCalculating hydrodynamic coeff using Jorge method:",
-            f"\nAdded mass coeff, u: {round(added_mass_jorge_fourier)} N.s²/m",
-            f"\nDamping coeff, v: {round(damping_jorge_fourier)} N.s/m",
-            f"\nNormalized added mass,u`: {round(pop.normalize(added_mass_jorge_fourier, draft, rho),4)}",
-            f"\nNormalized dammping, v`: {round(pop.normalize(damping_jorge_fourier, draft, rho, omega, damping=True), 4)}"
+            f"\n\n    Added mass coeff, u: {round(added_mass_jorge_fourier)} N.s²/m",
+            f"\n    Damping coeff, v: {round(damping_jorge_fourier)} N.s/m",
+            f"\n    Normalized added mass,u`: {round(pop.normalize(added_mass_jorge_fourier, draft, rho),4)}",
+            f"\n    Normalized dammping, v`: {round(pop.normalize(damping_jorge_fourier, draft, rho, omega, damping=True), 4)}"
         )
 
         #endregion
@@ -382,7 +395,7 @@ if __name__ == "__main__":
 
         pop.makeplot(title='Vertical force on the cylinder',
                     x=[time_truncated, time_truncated_n_periods, time_truncated_n_periods, time_truncated_n_periods], 
-                    y=[forceY_truncated-a0, forceY_filtered_n_periods-a0, force_reconstructed_n_periods, fit_sin_force], 
+                    y=[forceY_truncated-a0, forceY_filtered_n_periods-a0, force_reconstructed_n_periods, force_history_fit_XX_symetric], 
                     xlabel='Time (s)', 
                     ylabel='Force (N)',
                     label=['Unfiltered force (N)','Smoothed force (N)','Fourier reconstructed force (N)', 'Predicted force from curve fit (N)'], 
