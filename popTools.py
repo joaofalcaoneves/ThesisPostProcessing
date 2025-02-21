@@ -41,8 +41,7 @@ class UzunogluMethod:
 
         # Compute damping and added mass
         self.damping = (force_amplitude * np.sin(phase_shift)) / (motion_amplitude * omega)
-        self.addedmass = (-force_amplitude * np.cos(phase_shift)) / (motion_amplitude * omega**2) - mass
-
+        self.addedmass = -(force_amplitude * np.cos(phase_shift)) / (motion_amplitude * omega**2) 
         logger.info(f"UzunogluMethod - Damping: {self.damping}, Added mass: {self.addedmass}")
 
 
@@ -52,8 +51,9 @@ class OffshoreHydromechanicsMethod:
     def __init__(self, phase_shift:float, force_amplitude:float, motion_amplitude:float, omega:float, restoring_coefficient:float, mass:float=0):
 
         # Compute damping and added mass
-        self.damping = (force_amplitude * np.sin(phase_shift)) / (omega * motion_amplitude)
-        self.addedmass = -((force_amplitude * np.cos(phase_shift) - restoring_coefficient * motion_amplitude) / (omega**2 * motion_amplitude)) - mass
+        fa_za = force_amplitude / motion_amplitude
+        self.damping = (fa_za * np.sin(phase_shift)) / omega
+        self.addedmass = (restoring_coefficient - fa_za * np.cos(phase_shift)) / (omega**2) - mass
 
         logger.info(f"OffshoreHydromechanics - Damping: {self.damping}, Added mass: {self.addedmass}")
 
